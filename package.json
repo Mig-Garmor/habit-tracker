@@ -1,0 +1,52 @@
+{
+  "name": "habit-tracker",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "run-p dev:api dev:web",
+    "dev:web": "vite",
+    "dev:api": "tsx watch server/index.ts",
+    "build": "vue-tsc -b && vite build",
+    "preview": "vite preview",
+    "typecheck": "vue-tsc -b",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "tsx scripts/migrate.ts",
+    "db:seed": "tsx scripts/seed.ts",
+    "db:studio": "drizzle-kit studio"
+  },
+  "dependencies": {
+    "@hono/node-server": "^2.1.1",
+    "@vueuse/core": "^14.4.0",
+    "better-sqlite3": "^13.0.3",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "drizzle-orm": "^0.45.2",
+    "hono": "^4.13.7",
+    "lucide-vue-next": "^1.0.0",
+    "reka-ui": "^2.10.4",
+    "tailwind-merge": "^3.6.0",
+    "vue": "^3.5.42",
+    "vue-router": "^5.3.1"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^9.6.0",
+    "@types/node": "^24.13.3",
+    "@vitejs/plugin-vue": "^6.0.8",
+    "@vue/tsconfig": "^0.9.1",
+    "autoprefixer": "^10.5.6",
+    "drizzle-kit": "^0.31.10",
+    "npm-run-all2": "^9.0.3",
+    "postcss": "^8.5.28",
+    "sass-embedded": "^1.104.0",
+    "tailwindcss": "3.4.19",
+    "tailwindcss-animate": "^1.0.7",
+    "tsx": "^4.23.13",
+    "typescript": "~6.0.2",
+    "vite": "^8.3.0",
+    "vitest": "^5.0.0",
+    "vue-tsc": "^3.3.11"
+  }
+}

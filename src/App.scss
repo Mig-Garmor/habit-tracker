@@ -1,0 +1,15 @@
+.app {
+  @apply min-h-screen flex flex-col;
+
+  &__header {
+    @apply border-b;
+  }
+
+  &__brand {
+    @apply container flex h-14 items-center font-semibold tracking-tight;
+  }
+
+  &__main {
+    @apply container flex-1 py-10;
+  }
+}

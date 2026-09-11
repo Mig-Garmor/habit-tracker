@@ -1,0 +1,23 @@
+.home {
+  @apply mx-auto w-full max-w-xl;
+
+  &__progress {
+    @apply mb-2 text-sm text-muted-foreground;
+  }
+
+  &__list {
+    @apply -mx-3 flex flex-col;
+  }
+
+  &__state {
+    @apply py-6 text-sm text-muted-foreground;
+
+    code {
+      @apply rounded bg-muted px-1.5 py-0.5 font-mono text-xs text-foreground;
+    }
+
+    &--error {
+      @apply flex flex-col items-start gap-3 text-destructive;
+    }
+  }
+}
