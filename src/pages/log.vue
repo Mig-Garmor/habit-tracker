@@ -107,10 +107,14 @@ watch(
     if (!target) {
       // No date in the query — land on today, formatted from local calendar
       // parts rather than a locale string or toISOString (which is UTC).
+      // Redirecting with the locally-computed date (rather than fetching it
+      // first just to read the same value back) means this branch makes no
+      // network call of its own, so there is nothing here that can leave
+      // `loading` stuck — `goTo` re-triggers this watcher with a real date,
+      // and `load` (which already has its own try/catch) takes it from there.
       const now = new Date()
       const guess = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
-      const data = await fetchLog(guess)
-      goTo(data.date)
+      goTo(guess)
       return
     }
     await load(target)

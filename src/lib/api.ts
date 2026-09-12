@@ -95,9 +95,12 @@ async function json<T>(response: Response): Promise<T> {
   if (!response.ok) {
     const message = await response
       .json()
-      .then((body: { error?: string }) => body.error)
+      .then((body: { error?: unknown }) => (typeof body.error === 'string' ? body.error : null))
       .catch(() => null)
-    throw new Error(message ?? `Request failed: ${response.status} ${response.statusText}`)
+    // `@hono/zod-validator` returns `{ error: <ZodError> }` on a 400 — an
+    // object, not a string. Only ever surface a genuine string message;
+    // statusText is empty in some runtimes, so fall back to the status code.
+    throw new Error(message ?? `Request failed with status ${response.status}`)
   }
   return (await response.json()) as T
 }
