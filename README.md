@@ -86,18 +86,23 @@ the `.vue` file stays template + script:
 
 ```vue
 <template>
-  <li class="habit-item">…</li>
+  <div class="log-card">…</div>
 </template>
 
-<style lang="scss" scoped src="./HabitItem.scss"></style>
+<style lang="scss" scoped src="./LogHabitCard.scss"></style>
 ```
 
 ```scss
-.habit-item {
-  @apply flex items-center gap-3 rounded-md px-3 py-3;
-  @apply hover:bg-muted/60;
+.log-card {
+  @apply flex flex-col gap-3 rounded-lg border p-4;
 
-  &__label { @apply flex-1 text-sm font-medium; }
+  &__head {
+    @apply flex items-center gap-3;
+  }
+
+  &__name {
+    @apply cursor-pointer text-sm font-medium;
+  }
 }
 ```
 
