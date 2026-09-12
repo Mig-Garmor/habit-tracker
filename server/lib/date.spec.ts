@@ -115,6 +115,18 @@ describe('startOfWeek', () => {
 })
 
 describe('currentStreak', () => {
+  it('counts consecutive days ending today', () => {
+    expect(currentStreak(['2026-09-09', '2026-09-10', '2026-09-11'], '2026-09-11')).toBe(3)
+  })
+
+  it('stops at the first gap', () => {
+    expect(currentStreak(['2026-09-08', '2026-09-10', '2026-09-11'], '2026-09-11')).toBe(2)
+  })
+
+  it('is 0 for no history', () => {
+    expect(currentStreak([], '2026-09-11')).toBe(0)
+  })
+
   it('counts back from an unlogged today (D-4)', () => {
     expect(currentStreak(['2026-09-09', '2026-09-10', '2026-09-11'], '2026-09-12')).toBe(3)
   })
