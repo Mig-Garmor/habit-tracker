@@ -90,9 +90,24 @@ export interface CreateHabitInput {
 
 export type UpdateHabitInput = Partial<Omit<Habit, 'id' | 'createdAt' | 'activatedAt'>>
 
+/**
+ * The app is two processes: Vite serves the pages and proxies /api to the Hono
+ * server. When that server is not running the proxy answers with a gateway
+ * error, and when nothing is listening at all `fetch` rejects outright. Both
+ * mean the same thing, and "status 502" tells you nothing useful about it.
+ */
+const API_UNREACHABLE_STATUSES = new Set([502, 503, 504])
+
+const API_UNREACHABLE =
+  'Can’t reach the API. It runs as a second process — start both with `pnpm dev`.'
+
 /** Surfaces the server's own message so the UI can say what actually went wrong. */
 async function json<T>(response: Response): Promise<T> {
   if (!response.ok) {
+    if (API_UNREACHABLE_STATUSES.has(response.status)) {
+      throw new Error(API_UNREACHABLE)
+    }
+
     const message = await response
       .json()
       .then((body: { error?: unknown }) => (typeof body.error === 'string' ? body.error : null))
@@ -105,8 +120,18 @@ async function json<T>(response: Response): Promise<T> {
   return (await response.json()) as T
 }
 
+/** Every request goes through here so a dead server reads the same either way. */
+async function request(path: string, init?: RequestInit): Promise<Response> {
+  try {
+    return await fetch(path, init)
+  } catch {
+    // fetch only rejects on a transport failure — nothing is listening at all.
+    throw new Error(API_UNREACHABLE)
+  }
+}
+
 function send(path: string, method: string, body: unknown) {
-  return fetch(path, {
+  return request(path, {
     method,
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(body),
@@ -114,11 +139,11 @@ function send(path: string, method: string, body: unknown) {
 }
 
 export async function fetchDashboard(weeks = 15): Promise<DashboardResponse> {
-  return json<DashboardResponse>(await fetch(`/api/dashboard?weeks=${weeks}`))
+  return json<DashboardResponse>(await request(`/api/dashboard?weeks=${weeks}`))
 }
 
 export async function fetchLog(date: string): Promise<LogResponse> {
-  return json<LogResponse>(await fetch(`/api/log/${date}`))
+  return json<LogResponse>(await request(`/api/log/${date}`))
 }
 
 export async function saveLog(date: string, entries: LogEntryInput[]): Promise<LogResponse> {
@@ -127,7 +152,7 @@ export async function saveLog(date: string, entries: LogEntryInput[]): Promise<L
 
 export async function fetchHabits(status?: HabitStatus): Promise<Habit[]> {
   const query = status ? `?status=${status}` : ''
-  const body = await json<{ habits: Habit[] }>(await fetch(`/api/habits${query}`))
+  const body = await json<{ habits: Habit[] }>(await request(`/api/habits${query}`))
   return body.habits
 }
 
