@@ -9,6 +9,11 @@
     }
   }
 
+  &__error {
+    @apply rounded-md border p-3 text-sm text-destructive;
+    border-color: hsl(var(--destructive) / 0.4);
+  }
+
   &__warnings {
     @apply rounded-lg border p-4;
     border-color: hsl(var(--destructive) / 0.4);

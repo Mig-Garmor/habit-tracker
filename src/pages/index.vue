@@ -25,6 +25,7 @@ async function load() {
 
 async function park(habitId: number) {
   parkingId.value = habitId
+  error.value = null
   try {
     await updateHabit(habitId, { status: 'upcoming' })
     await load()
@@ -46,12 +47,14 @@ onMounted(load)
   <div class="dashboard">
     <p v-if="loading" class="dashboard__state">Loading…</p>
 
-    <div v-else-if="error" class="dashboard__state dashboard__state--error">
+    <div v-else-if="error && !data" class="dashboard__state dashboard__state--error">
       <p>{{ error }}</p>
       <Button variant="outline" size="sm" @click="load">Try again</Button>
     </div>
 
     <template v-else-if="data">
+      <p v-if="error" class="dashboard__error">{{ error }}</p>
+
       <section v-if="data.warnings.length" class="dashboard__warnings">
         <h2 class="dashboard__warnings-title">Slipping</h2>
         <p class="dashboard__warnings-lead">
@@ -77,7 +80,7 @@ onMounted(load)
         No active habits. Add one on the Habits screen.
       </p>
 
-      <Card v-for="habit in data.habits" :key="habit.id" class="dashboard__habit">
+      <Card v-for="habit in data.habits" :key="habit.id">
         <CardHeader class="dashboard__habit-header">
           <CardTitle>{{ habit.name }}</CardTitle>
           <HealthPill :health="habit.health" :rate="habit.rate" />
