@@ -1,0 +1,25 @@
+.health-pill {
+  @apply inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-xs font-medium;
+
+  &__rate {
+    @apply tabular-nums opacity-70;
+  }
+
+  &.is-new {
+    @apply border-border bg-muted text-muted-foreground;
+  }
+
+  &.is-struggling {
+    @apply border-destructive/40 text-destructive;
+    background-color: hsl(var(--destructive) / 0.1);
+  }
+
+  &.is-steady {
+    @apply border-border bg-secondary text-secondary-foreground;
+  }
+
+  &.is-consistent {
+    @apply border-primary/30 text-primary;
+    background-color: hsl(var(--primary) / 0.1);
+  }
+}

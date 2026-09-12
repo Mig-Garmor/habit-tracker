@@ -1,0 +1,34 @@
+.activity-grid {
+  &__scroll {
+    @apply overflow-x-auto pb-1;
+  }
+
+  &__weeks {
+    @apply flex gap-1 w-max;
+  }
+
+  &__week {
+    @apply grid gap-1;
+    grid-template-rows: repeat(7, minmax(0, 1fr));
+  }
+
+  &__day {
+    @apply block rounded-sm transition-colors;
+    width: 0.75rem;
+    height: 0.75rem;
+    background-color: hsl(var(--muted));
+
+    &:hover {
+      @apply ring-1 ring-ring;
+    }
+
+    &:focus-visible {
+      @apply outline-none ring-2 ring-ring;
+    }
+
+    &.is-level-1 { background-color: hsl(var(--primary) / 0.25); }
+    &.is-level-2 { background-color: hsl(var(--primary) / 0.5); }
+    &.is-level-3 { background-color: hsl(var(--primary) / 0.75); }
+    &.is-level-4 { background-color: hsl(var(--primary)); }
+  }
+}
