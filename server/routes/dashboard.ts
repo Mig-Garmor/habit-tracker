@@ -1,10 +1,9 @@
-import { asc, eq, gte } from 'drizzle-orm'
+import { asc, eq } from 'drizzle-orm'
 import { Hono } from 'hono'
 import { db } from '../db/client'
 import { habitEntries, habits } from '../db/schema'
-import { WINDOW_DAYS } from '../lib/consistency'
 import { buildDashboard } from '../lib/dashboard'
-import { lastNDays, previousDay, startOfWeek, today } from '../lib/date'
+import { previousDay, startOfWeek, today } from '../lib/date'
 
 export const dashboardRoutes = new Hono()
 
@@ -30,12 +29,11 @@ dashboardRoutes.get('/', c => {
     .orderBy(asc(habits.id))
     .all()
 
-  // Health and rate need the full consistency window even when the grid is
-  // short, so never fetch less than WINDOW_DAYS of entries.
-  const windowStart = lastNDays(WINDOW_DAYS, todayKey)[0]!
-  const entriesFrom = from < windowStart ? from : windowStart
-
-  const entries = db.select().from(habitEntries).where(gte(habitEntries.date, entriesFrom)).all()
+  // currentStreak has no depth cap, so a fetch window would truncate a long
+  // streak (R10). buildDashboard's `days` still only spans
+  // dateRange(from, today), and completionRate applies its own bounded
+  // window internally — only the streak needs full history.
+  const entries = db.select().from(habitEntries).all()
 
   return c.json(buildDashboard(active, entries, from, todayKey))
 })

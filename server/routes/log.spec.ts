@@ -158,6 +158,15 @@ describe('PUT /api/log/:date', () => {
     expect(exercise.entry!.note).toBeNull()
   })
 
+  it('preserves an existing note when a later save omits it (D-6)', async () => {
+    await put('2026-01-14', [{ habitId: exerciseId, completed: true, note: 'squats, 5k' }])
+    const body = await readJson<LogDayResponse>(
+      put('2026-01-14', [{ habitId: exerciseId, completed: true }]),
+    )
+    const exercise = body.habits.find(h => h.id === exerciseId)
+    expect(exercise?.entry?.note).toBe('squats, 5k')
+  })
+
   it('rejects a future date', async () => {
     const response = await put('2099-01-01', [{ habitId: exerciseId, completed: true }])
     expect(response.status).toBe(400)
