@@ -2,9 +2,14 @@ import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+import type { Habit } from '../db/schema'
 
 let app: { request: (path: string, init?: RequestInit) => Response | Promise<Response> }
 let dir: string
+
+async function readJson<T>(response: Response | Promise<Response>): Promise<T> {
+  return (await (await response).json()) as T
+}
 
 beforeAll(async () => {
   dir = mkdtempSync(join(tmpdir(), 'habit-routes-'))
@@ -42,7 +47,7 @@ describe('POST /api/habits', () => {
     const response = await post('/api/habits', { name: 'Exercise', notesEnabled: true })
     expect(response.status).toBe(201)
 
-    const { habit } = await response.json() as any
+    const { habit } = await readJson<{ habit: Habit }>(response)
     expect(habit.name).toBe('Exercise')
     expect(habit.kind).toBe('binary')
     expect(habit.status).toBe('active')
@@ -50,13 +55,18 @@ describe('POST /api/habits', () => {
   })
 
   it('leaves an upcoming habit unactivated', async () => {
-    const { habit } = await (await post('/api/habits', { name: 'Journal', status: 'upcoming' })).json() as any
+    const { habit } = await readJson<{ habit: Habit }>(post('/api/habits', { name: 'Journal', status: 'upcoming' }))
     expect(habit.status).toBe('upcoming')
     expect(habit.activatedAt).toBeNull()
   })
 
   it('rejects a quantity habit with no target', async () => {
     const response = await post('/api/habits', { name: 'Meditation', kind: 'quantity', unit: 'minutes' })
+    expect(response.status).toBe(400)
+  })
+
+  it('rejects a quantity habit with no unit', async () => {
+    const response = await post('/api/habits', { name: 'Meditation', kind: 'quantity', target: 10 })
     expect(response.status).toBe(400)
   })
 
@@ -75,14 +85,14 @@ describe('POST /api/habits', () => {
 describe('GET /api/habits', () => {
   it('filters by status', async () => {
     const response = await app.request('/api/habits?status=upcoming')
-    const { habits } = await response.json() as any
-    expect(habits.every((h: { status: string }) => h.status === 'upcoming')).toBe(true)
+    const { habits } = await readJson<{ habits: Habit[] }>(response)
+    expect(habits.every(h => h.status === 'upcoming')).toBe(true)
     expect(habits.length).toBeGreaterThan(0)
   })
 
   it('returns every habit when no status is given', async () => {
-    const { habits } = await (await app.request('/api/habits')).json() as any
-    const statuses = new Set(habits.map((h: { status: string }) => h.status))
+    const { habits } = await readJson<{ habits: Habit[] }>(app.request('/api/habits'))
+    const statuses = new Set(habits.map(h => h.status))
     expect(statuses.size).toBeGreaterThan(1)
   })
 
@@ -93,20 +103,20 @@ describe('GET /api/habits', () => {
 
 describe('PATCH /api/habits/:id', () => {
   it('activating an upcoming habit sets activatedAt (D-3)', async () => {
-    const { habit } = await (await post('/api/habits', { name: 'Stretch', status: 'upcoming' })).json() as any
+    const { habit } = await readJson<{ habit: Habit }>(post('/api/habits', { name: 'Stretch', status: 'upcoming' }))
     expect(habit.activatedAt).toBeNull()
 
-    const { habit: activated } = await (await patch(`/api/habits/${habit.id}`, { status: 'active' })).json() as any
+    const { habit: activated } = await readJson<{ habit: Habit }>(patch(`/api/habits/${habit.id}`, { status: 'active' }))
     expect(activated.status).toBe('active')
     expect(activated.activatedAt).toMatch(/^\d{4}-\d{2}-\d{2}$/)
   })
 
   it('changes a target without touching activatedAt', async () => {
-    const { habit } = await (await post('/api/habits', {
+    const { habit } = await readJson<{ habit: Habit }>(post('/api/habits', {
       name: 'Meditation', kind: 'quantity', unit: 'minutes', target: 5,
-    })).json() as any
+    }))
 
-    const { habit: updated } = await (await patch(`/api/habits/${habit.id}`, { target: 10 })).json() as any
+    const { habit: updated } = await readJson<{ habit: Habit }>(patch(`/api/habits/${habit.id}`, { target: 10 }))
     expect(updated.target).toBe(10)
     expect(updated.activatedAt).toBe(habit.activatedAt)
   })
