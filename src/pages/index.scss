@@ -1,23 +1,49 @@
-.home {
-  @apply mx-auto w-full max-w-xl;
-
-  &__progress {
-    @apply mb-2 text-sm text-muted-foreground;
-  }
-
-  &__list {
-    @apply -mx-3 flex flex-col;
-  }
+.dashboard {
+  @apply mx-auto flex w-full max-w-3xl flex-col gap-4;
 
   &__state {
     @apply py-6 text-sm text-muted-foreground;
 
-    code {
-      @apply rounded bg-muted px-1.5 py-0.5 font-mono text-xs text-foreground;
-    }
-
     &--error {
       @apply flex flex-col items-start gap-3 text-destructive;
     }
+  }
+
+  &__warnings {
+    @apply rounded-lg border p-4;
+    border-color: hsl(var(--destructive) / 0.4);
+    background-color: hsl(var(--destructive) / 0.06);
+  }
+
+  &__warnings-title {
+    @apply text-sm font-semibold text-destructive;
+  }
+
+  &__warnings-lead {
+    @apply mt-1 text-sm text-muted-foreground;
+  }
+
+  &__warnings-list {
+    @apply mt-3 flex flex-col gap-2;
+  }
+
+  &__warning {
+    @apply flex flex-wrap items-center gap-x-3 gap-y-2;
+  }
+
+  &__warning-name {
+    @apply text-sm font-medium;
+  }
+
+  &__warning-rate {
+    @apply flex-1 text-sm tabular-nums text-muted-foreground;
+  }
+
+  &__habit-header {
+    @apply flex-row items-center justify-between gap-3 space-y-0;
+  }
+
+  &__habit-meta {
+    @apply mb-3 text-sm tabular-nums text-muted-foreground;
   }
 }
