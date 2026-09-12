@@ -20,6 +20,9 @@ const loading = ref(true)
 const error = ref<string | null>(null)
 const busyId = ref<number | null>(null)
 const pendingActivation = ref<Habit | null>(null)
+// Draft values for the inline target editor (R13) — keyed by habit id so
+// each row's <input> can be edited independently of the last-loaded habit.
+const targetDrafts = ref<Record<number, number | null>>({})
 
 const form = ref({ name: '', isQuantity: false, unit: 'minutes', target: 10, notesEnabled: false })
 
@@ -44,6 +47,9 @@ async function load() {
     health.value = Object.fromEntries(
       dashboard.habits.map(h => [h.id, { health: h.health, rate: h.rate }]),
     )
+    targetDrafts.value = Object.fromEntries(
+      habits.filter(h => h.kind === 'quantity').map(h => [h.id, h.target]),
+    )
   } catch (e) {
     error.value = e instanceof Error ? e.message : 'Could not load habits.'
   } finally {
@@ -59,6 +65,32 @@ async function setStatus(habit: Habit, status: Habit['status']) {
     await load()
   } catch (e) {
     error.value = e instanceof Error ? e.message : 'Could not update that habit.'
+  } finally {
+    busyId.value = null
+  }
+}
+
+/**
+ * Minimal inline target editor for active quantity habits (R13) — the only
+ * UI path to the app's headline requirement (raise Meditation 5 → 10 and
+ * have past entries re-shade, D-2). Scope is deliberately narrow: target
+ * only, active quantity habits only. Commits on blur or Enter.
+ */
+async function updateTarget(habit: Habit) {
+  const draft = targetDrafts.value[habit.id]
+  if (draft === habit.target || draft === null || draft === undefined || !(draft > 0)) {
+    targetDrafts.value[habit.id] = habit.target
+    return
+  }
+
+  busyId.value = habit.id
+  error.value = null
+  try {
+    await updateHabit(habit.id, { target: draft })
+    await load()
+  } catch (e) {
+    error.value = e instanceof Error ? e.message : 'Could not update that target.'
+    targetDrafts.value[habit.id] = habit.target
   } finally {
     busyId.value = null
   }
@@ -117,6 +149,22 @@ onMounted(load)
         <ul class="habits__list">
           <li v-for="habit in active" :key="habit.id" class="habits__row">
             <span class="habits__name">{{ habit.name }}</span>
+            <div v-if="habit.kind === 'quantity'" class="habits__target">
+              <Input
+                type="number"
+                min="0"
+                step="any"
+                inputmode="decimal"
+                :model-value="targetDrafts[habit.id] ?? ''"
+                :disabled="busyId === habit.id"
+                class="habits__target-input"
+                :aria-label="`Daily target for ${habit.name}`"
+                @update:model-value="targetDrafts[habit.id] = $event === '' ? null : Number($event)"
+                @blur="updateTarget(habit)"
+                @keydown.enter.prevent="($event.target as HTMLElement).blur()"
+              />
+              <span class="habits__target-unit">{{ habit.unit }}</span>
+            </div>
             <HealthPill
               v-if="health[habit.id]"
               :health="health[habit.id]!.health"

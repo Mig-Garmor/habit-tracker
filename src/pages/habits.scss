@@ -37,6 +37,18 @@
     }
   }
 
+  &__target {
+    @apply flex items-center gap-2;
+  }
+
+  &__target-input {
+    @apply w-20 tabular-nums;
+  }
+
+  &__target-unit {
+    @apply text-sm text-muted-foreground;
+  }
+
   &__form {
     @apply flex flex-col gap-4 rounded-lg border p-4;
   }
