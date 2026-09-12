@@ -1,4 +1,4 @@
-import { and, asc, eq, isNull } from 'drizzle-orm'
+import { and, asc, eq } from 'drizzle-orm'
 import { Hono } from 'hono'
 import { db } from '../db/client'
 import { habitEntries, habits } from '../db/schema'
@@ -21,7 +21,7 @@ habitsRoutes.get('/today', c => {
       habitEntries,
       and(eq(habitEntries.habitId, habits.id), eq(habitEntries.date, date)),
     )
-    .where(isNull(habits.archivedAt))
+    .where(eq(habits.status, 'active'))
     .orderBy(asc(habits.id))
     .all()
 
