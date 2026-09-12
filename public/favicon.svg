@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <!--
+    A miniature activity grid: nine squares filling in toward the bottom right,
+    the way a habit builds up. Fills match the app's primary token per theme, so
+    the mark stays legible on a light or dark tab strip.
+    (Note: XML forbids a double hyphen inside a comment, so token names cannot
+    be written here with their leading dashes.)
+  -->
+  <style>
+    rect { fill: #18181b; }
+    @media (prefers-color-scheme: dark) {
+      rect { fill: #fafafa; }
+    }
+  </style>
+
+  <rect x="1"  y="1"  width="8" height="8" rx="2" opacity=".15" />
+  <rect x="12" y="1"  width="8" height="8" rx="2" opacity=".3" />
+  <rect x="23" y="1"  width="8" height="8" rx="2" opacity=".5" />
+
+  <rect x="1"  y="12" width="8" height="8" rx="2" opacity=".3" />
+  <rect x="12" y="12" width="8" height="8" rx="2" opacity=".5" />
+  <rect x="23" y="12" width="8" height="8" rx="2" opacity=".75" />
+
+  <rect x="1"  y="23" width="8" height="8" rx="2" opacity=".5" />
+  <rect x="12" y="23" width="8" height="8" rx="2" opacity=".75" />
+  <rect x="23" y="23" width="8" height="8" rx="2" />
+</svg>
