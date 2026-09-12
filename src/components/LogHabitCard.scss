@@ -1,0 +1,27 @@
+.log-card {
+  @apply flex flex-col gap-3 rounded-lg border p-4;
+
+  &__head {
+    @apply flex items-center gap-3;
+  }
+
+  &__name {
+    @apply cursor-pointer text-sm font-medium;
+  }
+
+  &__quantity {
+    @apply flex items-center gap-2;
+  }
+
+  &__input {
+    @apply w-24 tabular-nums;
+  }
+
+  &__unit {
+    @apply text-sm text-muted-foreground;
+  }
+
+  &__note {
+    @apply min-h-20;
+  }
+}

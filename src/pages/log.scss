@@ -1,0 +1,31 @@
+.log {
+  @apply mx-auto flex w-full max-w-xl flex-col gap-4;
+
+  &__header {
+    @apply flex items-center gap-2;
+  }
+
+  &__date {
+    @apply flex-1 tabular-nums;
+  }
+
+  &__list {
+    @apply flex flex-col gap-3;
+  }
+
+  &__footer {
+    @apply flex items-center gap-3;
+  }
+
+  &__saved {
+    @apply text-sm text-muted-foreground;
+  }
+
+  &__state {
+    @apply py-6 text-sm text-muted-foreground;
+
+    &--error {
+      @apply text-destructive;
+    }
+  }
+}
