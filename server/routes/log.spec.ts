@@ -193,6 +193,29 @@ describe('PUT /api/log/:date', () => {
     const response = await put('2026-01-13', [{ habitId: habit.id, completed: true }])
     expect(response.status).toBe(400)
   })
+
+  it('rolls back the whole batch when a later entry is invalid', async () => {
+    const { habit: archived } = await readJson<CreateHabitResponse>(app.request('/api/habits', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ name: 'Retired habit' }),
+    }))
+    await app.request(`/api/habits/${archived.id}`, {
+      method: 'PATCH',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ status: 'archived' }),
+    })
+
+    const response = await put('2026-01-15', [
+      { habitId: exerciseId, completed: true },
+      { habitId: archived.id, completed: true },
+    ])
+    expect(response.status).toBe(400)
+
+    const body = await readJson<LogDayResponse>(app.request('/api/log/2026-01-15'))
+    const exercise = body.habits.find(h => h.id === exerciseId)!
+    expect(exercise.entry).toBeNull()
+  })
 })
 
 describe('GET /api/dashboard', () => {
