@@ -1,0 +1,64 @@
+.habits {
+  @apply mx-auto flex w-full max-w-xl flex-col gap-8;
+
+  &__section {
+    @apply flex flex-col gap-3;
+  }
+
+  &__section-head {
+    @apply flex items-baseline justify-between gap-3;
+  }
+
+  &__title {
+    @apply text-sm font-semibold uppercase tracking-wide text-muted-foreground;
+  }
+
+  &__count {
+    @apply text-sm tabular-nums text-muted-foreground;
+  }
+
+  &__list {
+    @apply flex flex-col gap-2;
+  }
+
+  &__row {
+    @apply flex flex-wrap items-center gap-x-3 gap-y-2 rounded-lg border p-3;
+
+    &--compact {
+      @apply border-0 p-0;
+    }
+  }
+
+  &__name {
+    @apply flex-1 text-sm font-medium;
+
+    &--muted {
+      @apply text-muted-foreground;
+    }
+  }
+
+  &__form {
+    @apply flex flex-col gap-4 rounded-lg border p-4;
+  }
+
+  &__field {
+    @apply flex flex-1 flex-col gap-1.5;
+  }
+
+  &__toggle {
+    @apply flex cursor-pointer items-center gap-2 text-sm;
+  }
+
+  &__actions {
+    @apply flex flex-wrap gap-2;
+  }
+
+  &__state {
+    @apply text-sm text-muted-foreground;
+  }
+
+  &__error {
+    @apply rounded-md border p-3 text-sm text-destructive;
+    border-color: hsl(var(--destructive) / 0.4);
+  }
+}
