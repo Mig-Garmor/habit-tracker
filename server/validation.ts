@@ -10,8 +10,14 @@ const name = z.string().trim().min(1, 'Name is required').max(80)
 const unit = z.string().trim().min(1).max(20).nullable()
 const target = z.number().positive('Target must be greater than zero').nullable()
 
-/** A quantity habit is meaningless without something to count and a goal to count against. */
-function quantityIsComplete(habit: { kind: string, unit: unknown, target: unknown }) {
+/**
+ * A quantity habit is meaningless without something to count and a goal to
+ * count against. Exported so the PATCH route can re-check it against the
+ * *merged* (existing + patch) habit — a partial update must not produce a
+ * quantity habit missing either field, even though no single field of the
+ * patch is invalid on its own.
+ */
+export function quantityIsComplete(habit: { kind: string, unit: unknown, target: unknown }) {
   return habit.kind !== 'quantity' || (habit.unit !== null && habit.target !== null)
 }
 

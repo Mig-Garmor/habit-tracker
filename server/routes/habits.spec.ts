@@ -124,4 +124,27 @@ describe('PATCH /api/habits/:id', () => {
   it('404s for a habit that does not exist', async () => {
     expect((await patch('/api/habits/9999', { name: 'Nope' })).status).toBe(404)
   })
+
+  it('rejects a patch that would leave a quantity habit without a target', async () => {
+    const { habit } = await readJson<{ habit: Habit }>(post('/api/habits', {
+      name: 'Read', kind: 'quantity', unit: 'pages', target: 10,
+    }))
+
+    const response = await patch(`/api/habits/${habit.id}`, { target: null })
+    expect(response.status).toBe(400)
+  })
+
+  it('allows a name-only patch on an existing quantity habit', async () => {
+    const { habit } = await readJson<{ habit: Habit }>(post('/api/habits', {
+      name: 'Read', kind: 'quantity', unit: 'pages', target: 10,
+    }))
+
+    const response = await patch(`/api/habits/${habit.id}`, { name: 'Read more' })
+    expect(response.status).toBe(200)
+
+    const { habit: updated } = await readJson<{ habit: Habit }>(response)
+    expect(updated.name).toBe('Read more')
+    expect(updated.unit).toBe('pages')
+    expect(updated.target).toBe(10)
+  })
 })

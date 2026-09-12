@@ -4,7 +4,7 @@ import { Hono } from 'hono'
 import { db } from '../db/client'
 import { habits, habitStatuses } from '../db/schema'
 import { today } from '../lib/date'
-import { createHabitSchema, updateHabitSchema } from '../validation'
+import { createHabitSchema, quantityIsComplete, updateHabitSchema } from '../validation'
 
 export const habitsRoutes = new Hono()
 
@@ -50,6 +50,16 @@ habitsRoutes.patch('/:id', zValidator('json', updateHabitSchema), c => {
   }
 
   const input = c.req.valid('json')
+
+  // Same invariant createHabitSchema enforces on create, checked against the
+  // *merged* result — a patch touching only `name` must pass even though the
+  // existing habit is a quantity habit, but a patch that would leave a
+  // quantity habit without a unit or target must be rejected.
+  const merged = { ...existing, ...input }
+  if (!quantityIsComplete(merged)) {
+    return c.json({ error: 'A quantity habit needs both a unit and a target' }, 400)
+  }
+
   const becomingActive = input.status === 'active' && existing.status !== 'active'
 
   const updated = db
