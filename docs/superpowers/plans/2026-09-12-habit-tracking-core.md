@@ -2058,9 +2058,10 @@ function describe(day: DashboardDay): string {
 
 - [ ] **Step 2: Write the grid styles**
 
-Create `src/components/ActivityGrid.scss`. Levels use the primary token directly, because
-Tailwind's `/25` opacity modifiers do not work against a bare `hsl(var(--primary))` colour
-definition:
+Create `src/components/ActivityGrid.scss`. Levels set the primary token directly. (Note: this
+is a style choice, not a necessity — verified empirically that Tailwind v3 DOES inject alpha
+into `hsl(var(--primary))` tokens, so `bg-primary/25` compiles to exactly the same
+`hsl(var(--primary) / 0.25)`. Either form is correct.)
 
 ```scss
 .activity-grid {
