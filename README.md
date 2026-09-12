@@ -19,7 +19,7 @@ A single-user habit tracker. Data lives in a SQLite file on disk; nothing leaves
 ```bash
 pnpm install
 pnpm db:migrate   # create the schema
-pnpm db:seed      # add three starter habits
+pnpm db:seed      # add four starter habits
 pnpm dev
 ```
 
@@ -41,6 +41,7 @@ Open http://localhost:5173.
 | `pnpm db:generate` | Turn schema changes into a migration in `drizzle/` |
 | `pnpm db:migrate` | Apply pending migrations |
 | `pnpm db:seed` | Insert starter habits (no-op if any exist) |
+| `pnpm db:reset` | Drop the database, migrate, and reseed the four habits |
 | `pnpm db:studio` | Browse the database in Drizzle Studio |
 
 ## Layout
@@ -49,11 +50,12 @@ Open http://localhost:5173.
 data/habits.db        your data — gitignored
 drizzle/              generated migration SQL — committed
 server/
-  index.ts            Hono app + listener
-  routes/habits.ts    /api/habits/*
+  index.ts            listener — binds the port
+  app.ts              Hono app + route wiring (used directly by tests, no port needed)
+  routes/             /api/habits, /api/dashboard, /api/log
   db/schema.ts        Drizzle tables
   db/client.ts        better-sqlite3 connection
-  lib/date.ts         pure date/streak logic (+ .spec.ts)
+  lib/                pure date/level/consistency/dashboard logic (+ .spec.ts each)
 scripts/              migrate.ts, seed.ts
 src/
   pages/              file-system routes
@@ -65,8 +67,17 @@ src/
 
 ## Routing
 
-Add `src/pages/stats.vue` and `/stats` exists. `src/pages/habits/[id].vue` gives `/habits/:id`
-with a typed `id` param. Types are regenerated into `typed-router.d.ts` (gitignored) as you save.
+File-based: add `src/pages/stats.vue` and `/stats` exists; `src/pages/habits/[id].vue` would give
+`/habits/:id` with a typed `id` param. Types are regenerated into `typed-router.d.ts` (gitignored)
+as you save. The three routes actually wired up today are listed below.
+
+## Screens
+
+| Route | What it does |
+|---|---|
+| `/` | Dashboard — an activity grid per active habit, with slipping habits called out |
+| `/log` | Record a day. `?date=YYYY-MM-DD` backfills; tapping any square lands here |
+| `/habits` | Manage the active list, the upcoming backlog, and the archive |
 
 ## Styling convention
 

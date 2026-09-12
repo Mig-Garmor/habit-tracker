@@ -5,8 +5,24 @@
     @apply border-b;
   }
 
+  &__nav {
+    @apply container flex h-14 items-center gap-6;
+  }
+
   &__brand {
-    @apply container flex h-14 items-center font-semibold tracking-tight;
+    @apply font-semibold tracking-tight;
+  }
+
+  &__link {
+    @apply text-sm text-muted-foreground transition-colors;
+
+    &:hover {
+      @apply text-foreground;
+    }
+
+    &.router-link-active {
+      @apply text-foreground;
+    }
   }
 
   &__main {
