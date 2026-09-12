@@ -1,64 +1,67 @@
-import { and, asc, eq } from 'drizzle-orm'
+import { zValidator } from '@hono/zod-validator'
+import { asc, eq } from 'drizzle-orm'
 import { Hono } from 'hono'
 import { db } from '../db/client'
-import { habitEntries, habits } from '../db/schema'
+import { habits, habitStatuses } from '../db/schema'
 import { today } from '../lib/date'
+import { createHabitSchema, updateHabitSchema } from '../validation'
 
 export const habitsRoutes = new Hono()
 
-/** Today's active habits, each with its completion state for the day. */
-habitsRoutes.get('/today', c => {
-  const date = today()
+habitsRoutes.get('/', c => {
+  const status = c.req.query('status')
+  if (status && !habitStatuses.includes(status as (typeof habitStatuses)[number])) {
+    return c.json({ error: `Unknown status: ${status}` }, 400)
+  }
 
-  const rows = db
-    .select({
-      id: habits.id,
-      name: habits.name,
-      completed: habitEntries.completed,
-    })
-    .from(habits)
-    .leftJoin(
-      habitEntries,
-      and(eq(habitEntries.habitId, habits.id), eq(habitEntries.date, date)),
-    )
-    .where(eq(habits.status, 'active'))
+  const query = db.select().from(habits).$dynamic()
+  const rows = (status ? query.where(eq(habits.status, status as (typeof habitStatuses)[number])) : query)
     .orderBy(asc(habits.id))
     .all()
 
-  return c.json({
-    date,
-    habits: rows.map(row => ({ ...row, completed: row.completed ?? false })),
-  })
+  return c.json({ habits: rows })
 })
 
-/** Flip today's completion for one habit. Creates the day's row if absent. */
-habitsRoutes.post('/:id/toggle', c => {
+habitsRoutes.post('/', zValidator('json', createHabitSchema), c => {
+  const input = c.req.valid('json')
+
+  const created = db
+    .insert(habits)
+    .values({
+      ...input,
+      // Only an active habit has started its grace period (D-3).
+      activatedAt: input.status === 'active' ? today() : null,
+    })
+    .returning()
+    .get()
+
+  return c.json({ habit: created }, 201)
+})
+
+habitsRoutes.patch('/:id', zValidator('json', updateHabitSchema), c => {
   const id = Number(c.req.param('id'))
   if (!Number.isInteger(id)) {
     return c.json({ error: 'Invalid habit id' }, 400)
   }
 
-  const habit = db.select().from(habits).where(eq(habits.id, id)).get()
-  if (!habit) {
+  const existing = db.select().from(habits).where(eq(habits.id, id)).get()
+  if (!existing) {
     return c.json({ error: 'Habit not found' }, 404)
   }
 
-  const date = today()
-  const existing = db
-    .select()
-    .from(habitEntries)
-    .where(and(eq(habitEntries.habitId, id), eq(habitEntries.date, date)))
+  const input = c.req.valid('json')
+  const becomingActive = input.status === 'active' && existing.status !== 'active'
+
+  const updated = db
+    .update(habits)
+    .set({
+      ...input,
+      // Returning to active restarts the grace period (D-3).
+      ...(becomingActive ? { activatedAt: today() } : {}),
+    })
+    .where(eq(habits.id, id))
+    .returning()
     .get()
 
-  const completed = !existing?.completed
-
-  db.insert(habitEntries)
-    .values({ habitId: id, date, completed })
-    .onConflictDoUpdate({
-      target: [habitEntries.habitId, habitEntries.date],
-      set: { completed },
-    })
-    .run()
-
-  return c.json({ id, date, completed })
+  return c.json({ habit: updated })
 })
