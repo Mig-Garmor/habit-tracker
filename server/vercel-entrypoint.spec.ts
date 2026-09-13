@@ -8,7 +8,7 @@ import { beforeAll, describe, expect, it, vi } from 'vitest'
 // The entrypoint builds a real app at import time, which reaches the database
 // client. The shape of the export is what matters here, not any query, so the
 // client is replaced rather than a test database being stood up.
-vi.mock('./db/client', () => ({ db: {} }))
+vi.mock('./db/client', () => ({ db: {}, isDatabaseConfigured: () => true }))
 
 let entrypoint: { fetch: (request: Request) => Response | Promise<Response> }
 
@@ -48,7 +48,7 @@ describe('the Vercel entrypoint', () => {
     const response = await entrypoint.fetch(new Request('https://example.com/api/health'))
     expect(response).toBeInstanceOf(Response)
     expect(response.status).toBe(200)
-    expect(await response.json()).toEqual({ ok: true })
+    expect(await response.json()).toEqual({ ok: true, database: 'configured' })
   })
 
   it('survives its fetch being called unbound, as the builder calls it', async () => {

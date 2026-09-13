@@ -1,4 +1,5 @@
 import { Hono } from 'hono'
+import { isDatabaseConfigured } from './db/client'
 import { requireSession } from './middleware/require-session'
 import { authRoutes } from './routes/auth'
 import { dashboardRoutes } from './routes/dashboard'
@@ -12,8 +13,17 @@ import { logRoutes } from './routes/log'
 export function createApp() {
   const app = new Hono()
 
-  // Open: health reveals nothing, and auth is how a session is obtained.
-  app.get('/api/health', c => c.json({ ok: true }))
+  // Open: health reveals nothing beyond whether the app is configured, and
+  // auth is how a session is obtained.
+  //
+  // `database` reports only presence, never the value. It exists because a
+  // missing DATABASE_URL used to be invisible: every route returned an opaque
+  // 500 and the cause could not be told apart from a broken build. One
+  // unauthenticated request now distinguishes "app is down" from "app is up
+  // but not configured".
+  app.get('/api/health', c =>
+    c.json({ ok: true, database: isDatabaseConfigured() ? 'configured' : 'not configured' }),
+  )
   app.route('/api/auth', authRoutes)
 
   // Everything below this line requires a session.

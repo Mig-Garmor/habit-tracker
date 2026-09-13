@@ -8,6 +8,7 @@ vi.mock('../db/client', () => ({
   get db() {
     return holder.db
   },
+  isDatabaseConfigured: () => true,
 }))
 
 // Wraps the real implementation by default, so every existing test still
