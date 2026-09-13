@@ -143,9 +143,12 @@ describe('POST /api/auth/logout', () => {
       headers: { 'content-type': 'application/json' },
     })
     expect(response.status).toBe(200)
-    const setCookie = response.headers.get('set-cookie') ?? ''
-    expect(setCookie).toContain('habit_session=')
-    expect(setCookie).toMatch(/Max-Age=0|Expires=/i)
+    const setCookies = response.headers.getSetCookie()
+    expect(setCookies.some(cookie => /^__Host-habit_session=/.test(cookie))).toBe(true)
+    expect(setCookies.some(cookie => /^habit_session=/.test(cookie))).toBe(true)
+    for (const cookie of setCookies) {
+      expect(cookie).toMatch(/Max-Age=0|Expires=/i)
+    }
   })
 
   it('rejects a non-JSON content type', async () => {
