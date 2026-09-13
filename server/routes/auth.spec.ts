@@ -10,6 +10,15 @@ vi.mock('../db/client', () => ({
   },
 }))
 
+// Wraps the real implementation by default, so every existing test still
+// exercises real JWKS/issuer/audience logic. Only the 403-allowlist test below
+// overrides it for a single call, to reach that branch without a real Google
+// token.
+vi.mock('../auth/google', async importOriginal => {
+  const actual = await importOriginal<typeof import('../auth/google')>()
+  return { ...actual, verifyGoogleIdToken: vi.fn(actual.verifyGoogleIdToken) }
+})
+
 let app: { request: (path: string, init?: RequestInit) => Response | Promise<Response> }
 let close: () => Promise<void>
 
@@ -83,6 +92,25 @@ describe('POST /api/auth/session', () => {
     // Not a real Google token, so JWKS verification fails and no session is issued.
     expect((await post({ credential: 'made.up.token' })).status).toBe(401)
   })
+
+  it('rejects a non-JSON content type', async () => {
+    // The CSRF defence in cookie.ts rests on this: a cross-origin request can
+    // send text/plain without a preflight, so the route must not parse it.
+    const response = await app.request('/api/auth/session', {
+      method: 'POST',
+      headers: { 'content-type': 'text/plain' },
+      body: JSON.stringify({ credential: 'irrelevant' }),
+    })
+    expect(response.status).toBe(400)
+  })
+
+  it('returns 403 for a Google-verified account outside the allowlist', async () => {
+    const { verifyGoogleIdToken } = await import('../auth/google')
+    vi.mocked(verifyGoogleIdToken).mockResolvedValueOnce('not-on-the-list@example.com')
+
+    const response = await post({ credential: 'irrelevant' })
+    expect(response.status).toBe(403)
+  })
 })
 
 describe('GET /api/auth/me', () => {
@@ -101,9 +129,20 @@ describe('GET /api/auth/me', () => {
 
 describe('POST /api/auth/logout', () => {
   it('clears the cookie', async () => {
-    const response = await app.request('/api/auth/logout', { method: 'POST' })
+    const response = await app.request('/api/auth/logout', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+    })
     expect(response.status).toBe(200)
     expect(response.headers.get('set-cookie')).toContain('habit_session=')
     expect(response.headers.get('set-cookie')).toMatch(/Max-Age=0|Expires=/i)
+  })
+
+  it('rejects a non-JSON content type', async () => {
+    const response = await app.request('/api/auth/logout', {
+      method: 'POST',
+      headers: { 'content-type': 'text/plain' },
+    })
+    expect(response.status).toBe(400)
   })
 })

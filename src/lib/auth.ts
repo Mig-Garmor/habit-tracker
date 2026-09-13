@@ -49,7 +49,10 @@ async function signIn(credential: string): Promise<void> {
 }
 
 async function signOut(): Promise<void> {
-  await fetch('/api/auth/logout', { method: 'POST' }).catch(() => undefined)
+  await fetch('/api/auth/logout', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+  }).catch(() => undefined)
   email.value = null
   status.value = 'out'
 }

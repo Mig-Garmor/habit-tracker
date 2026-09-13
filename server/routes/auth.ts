@@ -1,3 +1,4 @@
+import type { Context } from 'hono'
 import { Hono } from 'hono'
 import { deleteCookie, getCookie, setCookie } from 'hono/cookie'
 import { isAllowed, parseAllowlist } from '../auth/allowlist'
@@ -7,7 +8,21 @@ import { createSessionToken, readSessionToken } from '../auth/session'
 
 export const authRoutes = new Hono()
 
+// Same rule zValidator('json', …) enforces for the data routes (see
+// cookie.ts): a mutating route must require this content type, or the CSRF
+// rationale that comment states does not hold for it.
+const JSON_CONTENT_TYPE = /^application\/json(\s*;.*)?$/i
+
+function hasJsonContentType(c: Context): boolean {
+  const contentType = c.req.header('content-type')
+  return contentType !== undefined && JSON_CONTENT_TYPE.test(contentType)
+}
+
 authRoutes.post('/session', async c => {
+  if (!hasJsonContentType(c)) {
+    return c.json({ error: 'Content-Type must be application/json' }, 400)
+  }
+
   const secret = process.env.SESSION_SECRET
   const clientId = process.env.GOOGLE_CLIENT_ID
   if (!secret || !clientId) {
@@ -43,6 +58,10 @@ authRoutes.get('/me', async c => {
 })
 
 authRoutes.post('/logout', c => {
+  if (!hasJsonContentType(c)) {
+    return c.json({ error: 'Content-Type must be application/json' }, 400)
+  }
+
   deleteCookie(c, SESSION_COOKIE, { path: '/' })
   return c.json({ ok: true })
 })
