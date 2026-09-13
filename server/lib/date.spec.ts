@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { currentStreak, dateRange, isValidDateKey, lastNDays, nextDay, previousDay, startOfWeek, toDateKey } from './date.js'
+import { currentStreak, dateRange, isValidDateKey, isWeekComplete, lastNDays, lastNWeekStarts, nextDay, nextWeek, previousDay, previousWeek, startOfWeek, toDateKey, weekDays } from './date.js'
 
 describe('toDateKey', () => {
   it('formats a local date as YYYY-MM-DD', () => {
@@ -137,5 +137,67 @@ describe('currentStreak', () => {
 
   it('is 0 when neither today nor yesterday is completed', () => {
     expect(currentStreak(['2026-09-09', '2026-09-10'], '2026-09-12')).toBe(0)
+  })
+})
+
+describe('lastNWeekStarts', () => {
+  it('ends with the week containing the given day', () => {
+    // 2026-09-13 is a Sunday; its week starts Monday 2026-09-07.
+    expect(lastNWeekStarts(1, '2026-09-13')).toEqual(['2026-09-07'])
+  })
+
+  it('walks back whole weeks, ascending', () => {
+    expect(lastNWeekStarts(3, '2026-09-13')).toEqual(['2026-08-24', '2026-08-31', '2026-09-07'])
+  })
+
+  it('works when the day is itself a Monday', () => {
+    expect(lastNWeekStarts(2, '2026-09-07')).toEqual(['2026-08-31', '2026-09-07'])
+  })
+
+  it('returns nothing for a non-positive count', () => {
+    expect(lastNWeekStarts(0, '2026-09-13')).toEqual([])
+  })
+})
+
+describe('weekDays', () => {
+  it('returns seven days, Monday first', () => {
+    expect(weekDays('2026-09-07')).toEqual([
+      '2026-09-07', '2026-09-08', '2026-09-09', '2026-09-10',
+      '2026-09-11', '2026-09-12', '2026-09-13',
+    ])
+  })
+
+  it('crosses a month boundary', () => {
+    expect(weekDays('2026-08-31')[6]).toBe('2026-09-06')
+  })
+})
+
+describe('nextWeek and previousWeek', () => {
+  it('advance and retreat exactly seven days', () => {
+    expect(nextWeek('2026-08-31')).toBe('2026-09-07')
+    expect(previousWeek('2026-09-07')).toBe('2026-08-31')
+  })
+
+  it('cross a month boundary', () => {
+    expect(nextWeek('2026-08-24')).toBe('2026-08-31')
+    expect(previousWeek('2026-09-07')).toBe('2026-08-31')
+  })
+
+  it('round-trip', () => {
+    expect(previousWeek(nextWeek('2026-09-07'))).toBe('2026-09-07')
+  })
+})
+
+describe('isWeekComplete', () => {
+  it('is false for the week containing today', () => {
+    expect(isWeekComplete('2026-09-07', '2026-09-13')).toBe(false)
+  })
+
+  it('is false on the last day of the week, which has not finished', () => {
+    expect(isWeekComplete('2026-09-07', '2026-09-13')).toBe(false)
+  })
+
+  it('is true once the week is entirely past', () => {
+    expect(isWeekComplete('2026-08-31', '2026-09-07')).toBe(true)
   })
 })
