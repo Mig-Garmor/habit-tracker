@@ -1,6 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 import type { Habit } from '../db/schema'
 import { createTestDb } from '../test/pg-harness'
+import { signedCookieHeader, TEST_SESSION_SECRET } from '../test/session-cookie'
 
 const holder = vi.hoisted(() => ({ db: undefined as unknown }))
 
@@ -14,12 +15,16 @@ vi.mock('../db/client', () => ({
 
 let app: { request: (path: string, init?: RequestInit) => Response | Promise<Response> }
 let closeTestDb: () => Promise<void>
+let cookie: string
 
 async function readJson<T>(response: Response | Promise<Response>): Promise<T> {
   return (await (await response).json()) as T
 }
 
 beforeAll(async () => {
+  process.env.SESSION_SECRET = TEST_SESSION_SECRET
+  cookie = await signedCookieHeader()
+
   const { db, close } = await createTestDb()
   holder.db = db
   closeTestDb = close
@@ -33,7 +38,7 @@ afterAll(async () => {
 function post(path: string, body: unknown) {
   return app.request(path, {
     method: 'POST',
-    headers: { 'content-type': 'application/json' },
+    headers: { 'content-type': 'application/json', cookie },
     body: JSON.stringify(body),
   })
 }
@@ -41,7 +46,7 @@ function post(path: string, body: unknown) {
 function patch(path: string, body: unknown) {
   return app.request(path, {
     method: 'PATCH',
-    headers: { 'content-type': 'application/json' },
+    headers: { 'content-type': 'application/json', cookie },
     body: JSON.stringify(body),
   })
 }
@@ -88,20 +93,20 @@ describe('POST /api/habits', () => {
 
 describe('GET /api/habits', () => {
   it('filters by status', async () => {
-    const response = await app.request('/api/habits?status=upcoming')
+    const response = await app.request('/api/habits?status=upcoming', { headers: { cookie } })
     const { habits } = await readJson<{ habits: Habit[] }>(response)
     expect(habits.every(h => h.status === 'upcoming')).toBe(true)
     expect(habits.length).toBeGreaterThan(0)
   })
 
   it('returns every habit when no status is given', async () => {
-    const { habits } = await readJson<{ habits: Habit[] }>(app.request('/api/habits'))
+    const { habits } = await readJson<{ habits: Habit[] }>(app.request('/api/habits', { headers: { cookie } }))
     const statuses = new Set(habits.map(h => h.status))
     expect(statuses.size).toBeGreaterThan(1)
   })
 
   it('rejects an unknown status', async () => {
-    expect((await app.request('/api/habits?status=banana')).status).toBe(400)
+    expect((await app.request('/api/habits?status=banana', { headers: { cookie } })).status).toBe(400)
   })
 })
 
