@@ -1,8 +1,15 @@
 import type { Context } from 'hono'
 import { Hono } from 'hono'
-import { deleteCookie, getCookie, setCookie } from 'hono/cookie'
+import { deleteCookie, setCookie } from 'hono/cookie'
 import { isAllowed, parseAllowlist } from '../auth/allowlist'
-import { SESSION_COOKIE, sessionCookieOptions } from '../auth/cookie'
+import {
+  readSessionCookie,
+  requestIsSecure,
+  SESSION_COOKIE_PLAIN,
+  SESSION_COOKIE_SECURE,
+  sessionCookieName,
+  sessionCookieOptions,
+} from '../auth/cookie'
 import { verifyGoogleIdToken } from '../auth/google'
 import { createSessionToken, readSessionToken } from '../auth/session'
 
@@ -43,7 +50,13 @@ authRoutes.post('/session', async c => {
     return c.json({ error: 'That account is not allowed to use this app' }, 403)
   }
 
-  setCookie(c, SESSION_COOKIE, await createSessionToken(email, secret), sessionCookieOptions(c.req.url))
+  const secure = requestIsSecure(c)
+  setCookie(
+    c,
+    sessionCookieName(secure),
+    await createSessionToken(email, secret),
+    sessionCookieOptions(secure),
+  )
   return c.json({ email })
 })
 
@@ -51,7 +64,7 @@ authRoutes.get('/me', async c => {
   const secret = process.env.SESSION_SECRET
   if (!secret) return c.json({ error: 'Not signed in' }, 401)
 
-  const email = await readSessionToken(getCookie(c, SESSION_COOKIE) ?? '', secret)
+  const email = await readSessionToken(readSessionCookie(c) ?? '', secret)
   if (!email) return c.json({ error: 'Not signed in' }, 401)
 
   return c.json({ email })
@@ -62,6 +75,10 @@ authRoutes.post('/logout', c => {
     return c.json({ error: 'Content-Type must be application/json' }, 400)
   }
 
-  deleteCookie(c, SESSION_COOKIE, { path: '/' })
+  // `__Host-` cookies require Secure on every write, deletions included, or
+  // Hono's serializer throws — so this clear always sets it, independent of
+  // the current request's own protocol, to guarantee old sessions are wiped.
+  deleteCookie(c, SESSION_COOKIE_SECURE, { path: '/', secure: true })
+  deleteCookie(c, SESSION_COOKIE_PLAIN, { path: '/' })
   return c.json({ ok: true })
 })

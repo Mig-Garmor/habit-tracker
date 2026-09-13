@@ -61,13 +61,39 @@ describe('the guard', () => {
 
   it('allows a validly signed cookie', async () => {
     const response = await app.request('/api/habits', {
-      headers: { cookie: await signedCookieHeader() },
+      headers: { cookie: await signedCookieHeader('me@example.com') },
     })
     expect(response.status).toBe(200)
   })
 
   it('leaves /api/health open', async () => {
     expect((await app.request('/api/health')).status).toBe(200)
+  })
+
+  it('accepts a session under the __Host- name', async () => {
+    const { createSessionToken } = await import('../auth/session')
+    const token = await createSessionToken('me@example.com', TEST_SESSION_SECRET)
+    const response = await app.request('/api/habits', {
+      headers: { cookie: `__Host-habit_session=${token}` },
+    })
+    expect(response.status).toBe(200)
+  })
+
+  // The allowlist is re-checked on every request, not only at sign-in: a
+  // validly-signed token for an email no longer in ALLOWED_EMAILS must be
+  // rejected immediately, rather than staying valid until it expires.
+  it('allows a session whose email is still on the allowlist', async () => {
+    const response = await app.request('/api/habits', {
+      headers: { cookie: await signedCookieHeader('me@example.com') },
+    })
+    expect(response.status).toBe(200)
+  })
+
+  it('rejects a validly signed session whose email is no longer on the allowlist', async () => {
+    const response = await app.request('/api/habits', {
+      headers: { cookie: await signedCookieHeader('removed@example.com') },
+    })
+    expect(response.status).toBe(401)
   })
 })
 
@@ -111,6 +137,45 @@ describe('POST /api/auth/session', () => {
     const response = await post({ credential: 'irrelevant' })
     expect(response.status).toBe(403)
   })
+
+  // Every other test in this file drives the plain-cookie path. A regression
+  // in sessionCookieName/sessionCookieOptions for the secure branch would
+  // ship silently without a test that goes through a real sign-in with
+  // x-forwarded-proto set, the way Vercel's edge presents the request.
+  it('issues a __Host- cookie with Secure, HttpOnly and SameSite when forwarded as https', async () => {
+    const { verifyGoogleIdToken } = await import('../auth/google')
+    vi.mocked(verifyGoogleIdToken).mockResolvedValueOnce('me@example.com')
+
+    const response = await app.request('/api/auth/session', {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        'x-forwarded-proto': 'https',
+      },
+      body: JSON.stringify({ credential: 'irrelevant' }),
+    })
+    expect(response.status).toBe(200)
+
+    const setCookies = response.headers.getSetCookie()
+    const sessionCookie = setCookies.find(cookie => cookie.startsWith('__Host-habit_session='))
+    expect(sessionCookie).toBeDefined()
+    expect(sessionCookie).toMatch(/;\s*Secure/i)
+    expect(sessionCookie).toMatch(/;\s*HttpOnly/i)
+    expect(sessionCookie).toMatch(/;\s*SameSite=Lax/i)
+  })
+
+  it('issues the plain, non-Secure cookie when there is no forwarded protocol', async () => {
+    const { verifyGoogleIdToken } = await import('../auth/google')
+    vi.mocked(verifyGoogleIdToken).mockResolvedValueOnce('me@example.com')
+
+    const response = await post({ credential: 'irrelevant' })
+    expect(response.status).toBe(200)
+
+    const setCookies = response.headers.getSetCookie()
+    const sessionCookie = setCookies.find(cookie => cookie.startsWith('habit_session='))
+    expect(sessionCookie).toBeDefined()
+    expect(sessionCookie).not.toMatch(/;\s*Secure/i)
+  })
 })
 
 describe('GET /api/auth/me', () => {
@@ -134,8 +199,12 @@ describe('POST /api/auth/logout', () => {
       headers: { 'content-type': 'application/json' },
     })
     expect(response.status).toBe(200)
-    expect(response.headers.get('set-cookie')).toContain('habit_session=')
-    expect(response.headers.get('set-cookie')).toMatch(/Max-Age=0|Expires=/i)
+    const setCookies = response.headers.getSetCookie()
+    expect(setCookies.some(cookie => /^__Host-habit_session=/.test(cookie))).toBe(true)
+    expect(setCookies.some(cookie => /^habit_session=/.test(cookie))).toBe(true)
+    for (const cookie of setCookies) {
+      expect(cookie).toMatch(/Max-Age=0|Expires=/i)
+    }
   })
 
   it('rejects a non-JSON content type', async () => {

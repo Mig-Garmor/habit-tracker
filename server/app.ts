@@ -24,7 +24,10 @@ export function createApp() {
   app.route('/api/log', logRoutes)
 
   app.onError((err, c) => {
-    console.error(err)
+    // Never log the whole error object: a failed Neon connection can carry
+    // the connection string (credentials included) in its own properties —
+    // the exact hazard databaseHost() exists to avoid. Message and stack only.
+    console.error(err.message, err.stack)
     return c.json({ error: 'Something went wrong' }, 500)
   })
 
