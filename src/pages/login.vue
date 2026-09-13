@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { onMounted, onUnmounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuth } from '@/lib/auth'
 
@@ -36,6 +36,11 @@ async function handleCredential(response: GoogleCredentialResponse) {
   }
 }
 
+let timer: number | undefined
+// ~5 seconds at 50ms. Long enough for a slow network, short enough that a
+// blocked script reports itself instead of hanging silently.
+const MAX_ATTEMPTS = 100
+
 onMounted(() => {
   const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID
   if (!clientId) {
@@ -43,15 +48,25 @@ onMounted(() => {
     return
   }
   // The GSI script is loaded async in index.html, so it may not be ready yet.
+  let attempts = 0
   const start = () => {
     if (!window.google || !buttonHost.value) {
-      window.setTimeout(start, 50)
+      attempts += 1
+      if (attempts > MAX_ATTEMPTS) {
+        error.value = 'Could not load Google sign-in. Check your connection or any blocking extension, then reload.'
+        return
+      }
+      timer = window.setTimeout(start, 50)
       return
     }
     window.google.accounts.id.initialize({ client_id: clientId, callback: handleCredential })
     window.google.accounts.id.renderButton(buttonHost.value, { theme: 'outline', size: 'large' })
   }
   start()
+})
+
+onUnmounted(() => {
+  if (timer !== undefined) window.clearTimeout(timer)
 })
 </script>
 
