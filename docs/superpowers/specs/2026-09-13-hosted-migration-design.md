@@ -246,7 +246,9 @@ correct locally but unsafe here: Vercel terminates TLS at its edge and the funct
 can see a plain `http:` request. Derived naively, the production cookie would silently lose its
 `Secure` attribute — the one deployment where it matters most. Phase 3 must read
 `x-forwarded-proto` (or trust the platform's own signal) and verify the attribute on a real
-deployed response rather than assuming it.
+deployed response rather than assuming it. The cookie should also be renamed with the
+`__Host-` prefix at the same time, since that prefix requires `Secure` to be reliably set and
+closes the same-apex-sibling risk on `*.vercel.app` for free once it is.
 
 **D-13 — migrations are run deliberately, never as part of a deploy.** A build step that
 migrates means a bad schema change ships itself the moment it is pushed, and Vercel builds run
