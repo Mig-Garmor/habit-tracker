@@ -1,0 +1,5 @@
+.superpowers
+docs
+bruno
+*.md
+!README.md

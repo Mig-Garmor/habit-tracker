@@ -255,6 +255,17 @@ migrates means a bad schema change ships itself the moment it is pushed, and Ver
 on every commit. A `pnpm db:migrate:prod` invoked by a human, against an explicit
 `DATABASE_URL`, keeps schema changes a decision rather than a side effect.
 
+**D-16 — the Neon WebSocket pool stays, and the function runs on the Node
+runtime.** `neon-http` cannot be used because `PUT /api/log/:date` needs a real
+transaction (D-14), and a WebSocket pool needs Node rather than Edge. The cost
+is a connection handshake on each cold start, and connections that may be
+dropped while a function is frozen — which is exactly why the pool carries an
+`error` listener, without which a dropped idle connection is an uncaught
+exception. Splitting the driver (HTTP for reads, pool for the one transactional
+route) would avoid the handshake at the price of two clients and two code paths;
+that is not worth it for a single-user app, and the decision should be revisited
+only if cold starts become a real complaint.
+
 ## Phase 3 is done when
 
 The deployed URL serves the app, sign-in works end to end against the production Neon branch,
