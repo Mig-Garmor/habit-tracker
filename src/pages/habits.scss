@@ -47,11 +47,27 @@
   }
 
   &__name {
-    @apply flex-1 text-sm font-medium;
+    /* Fixed width, not flex-1: the point of truncating is that every row lines
+       up, which a growing name defeats. */
+    @apply w-28 shrink-0 truncate text-sm font-medium;
 
     &--muted {
       @apply text-muted-foreground;
     }
+  }
+
+  &__summary {
+    /* The read-mode stand-in for the inputs. Takes the slack so the menu sits
+       at the right edge regardless of how long the summary is. */
+    @apply flex-1 truncate text-sm text-muted-foreground;
+  }
+
+  &__name-input {
+    @apply w-32 text-sm;
+  }
+
+  &__menu-trigger {
+    @apply shrink-0 px-2 text-base leading-none;
   }
 
   &__target {

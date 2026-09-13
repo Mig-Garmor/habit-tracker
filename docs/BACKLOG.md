@@ -62,10 +62,11 @@ schedule strict? Those two answers change most of the logic above.
 
 ## UI density and editing
 
-- **Log page: edit on request, not always.** Every field on the log screen is a live input, so
-  each habit takes far more vertical space than its content needs and rows change height as
-  values change. Show the value as text; reveal the inputs and a Save button only when Edit is
-  clicked. Habit names truncate to 12 characters.
+- **Habits page: edit on request, not always.** Every field on a habit row is a live input —
+  target, unit, cadence — alongside a drag grip, a health pill and two buttons. The row is
+  crowded, takes more space than its content needs, and changes size as values change. Show the
+  values as text; reveal the inputs and a Save button only when Edit is clicked. Habit names
+  truncate to 12 characters.
 - **Dashboard: six habits at a glance.** The `/` route should fit at least six habits without
   scrolling, so consistency can be read in one look rather than assembled by scrolling. Today
   each habit is a full-width card with a 15-week grid, so two fill the screen. Likely needs a
