@@ -5,3 +5,7 @@ bruno
 !README.md
 .env
 .env.production
+
+# Tests are never part of a deployment. A spec under api/ would also be
+# built as a serverless function.
+**/*.spec.ts
