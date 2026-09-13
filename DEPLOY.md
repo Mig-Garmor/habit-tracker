@@ -29,6 +29,21 @@ openssl rand -base64 32
 
 A separate secret per environment means a leaked local `.env` cannot mint production sessions.
 
+### Environments are scoped separately
+
+Vercel scopes each variable to **Production**, **Preview** and **Development** independently.
+Setting one does not set the others, and every pull request builds a **Preview** deployment.
+
+If a variable is missing, the function does not start at all: `server/db/client.ts` throws at
+module scope when `DATABASE_URL` is unset, and the entrypoint builds the app at module scope,
+so the import fails and *every* route returns `FUNCTION_INVOCATION_FAILED` — including
+`/api/health`, which otherwise touches nothing. An opaque 500 on every API route, with a
+working frontend, almost always means a missing variable rather than a broken function.
+
+Tick Preview as well as Production unless you want PR previews to fail. A preview should point
+at a **non-production** database branch: previews are built from unmerged code, and pointing
+them at production data means an unreviewed migration or query runs against it.
+
 ## 3. OAuth origins
 
 Add `https://<project>.vercel.app` to the OAuth client's **Authorised JavaScript origins**,
