@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, nextTick, onMounted, ref } from 'vue'
+import { computed, nextTick, onMounted, onUnmounted, ref } from 'vue'
 import EditableName from '@/components/EditableName.vue'
 import HealthPill from '@/components/HealthPill.vue'
 import {
@@ -50,8 +50,9 @@ function applyGroupOrder(status: HabitStatus, ordered: Habit[]) {
   all.value = [...all.value.filter(habit => habit.status !== status), ...ordered]
 }
 
-function rowBoxes(fromElement: HTMLElement) {
-  const list = fromElement.closest('ul')
+/** Row boxes for one status list, read from the DOM at the moment of the move. */
+function rowBoxes(status: HabitStatus) {
+  const list = document.querySelector<HTMLElement>(`[data-habit-list="${status}"]`)
   if (!list) return []
   return [...list.querySelectorAll<HTMLElement>('li')].map(row => {
     const box = row.getBoundingClientRect()
@@ -59,29 +60,77 @@ function rowBoxes(fromElement: HTMLElement) {
   })
 }
 
+/**
+ * Drag state. Held outside the component's reactive data because none of it
+ * needs to render — only `draggingId` does.
+ */
+let activePointer: number | null = null
+let draggedId: number | null = null
+let draggedStatus: HabitStatus | null = null
+
+/**
+ * Listeners live on `window`, deliberately, and the grip does NOT capture the
+ * pointer.
+ *
+ * The first version called `setPointerCapture` on the grip. As the list
+ * reorders mid-drag, Vue moves that row's DOM node, and a moved node can lose
+ * pointer capture — after which no `pointerup` ever reaches the grip. The row
+ * stayed stuck to the finger and nothing was ever saved, which is exactly what
+ * was reported on mobile. A window listener cannot be lost that way, so the
+ * drop always lands.
+ */
 function startDrag(event: PointerEvent, habit: Habit) {
-  const grip = event.currentTarget as HTMLElement
-  // Pointer capture keeps events coming to the grip even when the pointer
-  // leaves it, which it immediately does — the row moves out from under it.
-  grip.setPointerCapture(event.pointerId)
+  // A second finger during a drag must not hijack it.
+  if (activePointer !== null) return
+
+  activePointer = event.pointerId
+  draggedId = habit.id
+  draggedStatus = habit.status
   draggingId.value = habit.id
   committedOrder = groupFor(habit.status)
+
+  window.addEventListener('pointermove', onPointerMove)
+  window.addEventListener('pointerup', onPointerUp)
+  // The browser reclaiming the gesture still has to end the drag and save,
+  // otherwise a cancelled drag leaves the row lifted and the move lost.
+  window.addEventListener('pointercancel', onPointerUp)
+
   event.preventDefault()
 }
 
-function dragOver(event: PointerEvent, habit: Habit) {
-  if (draggingId.value !== habit.id) return
-  const group = groupFor(habit.status)
-  const from = group.findIndex(item => item.id === habit.id)
-  const to = indexForPointer(rowBoxes(event.currentTarget as HTMLElement), event.clientY)
-  if (to !== from) applyGroupOrder(habit.status, moveItem(group, from, to))
+function onPointerMove(event: PointerEvent) {
+  if (event.pointerId !== activePointer || draggedId === null || draggedStatus === null) return
+
+  const group = groupFor(draggedStatus)
+  const from = group.findIndex(item => item.id === draggedId)
+  if (from === -1) return
+
+  const rows = rowBoxes(draggedStatus)
+  if (rows.length === 0) return
+
+  const to = indexForPointer(rows, event.clientY)
+  if (to !== from) applyGroupOrder(draggedStatus, moveItem(group, from, to))
 }
 
-async function endDrag(habit: Habit) {
-  if (draggingId.value !== habit.id) return
-  draggingId.value = null
-  await commitOrder(habit.status)
+function onPointerUp(event: PointerEvent) {
+  if (event.pointerId !== activePointer) return
+  const status = draggedStatus
+  endDrag()
+  if (status) void commitOrder(status)
 }
+
+/** Always clears the lifted state, whatever ended the drag. */
+function endDrag() {
+  window.removeEventListener('pointermove', onPointerMove)
+  window.removeEventListener('pointerup', onPointerUp)
+  window.removeEventListener('pointercancel', onPointerUp)
+  activePointer = null
+  draggedId = null
+  draggedStatus = null
+  draggingId.value = null
+}
+
+onUnmounted(endDrag)
 
 async function commitOrder(status: HabitStatus) {
   const group = groupFor(status)
@@ -259,7 +308,7 @@ onMounted(load)
 
         <p v-if="active.length === 0" class="habits__state">Nothing active yet.</p>
 
-        <ul class="habits__list">
+        <ul class="habits__list" data-habit-list="active">
           <li
             v-for="habit in active"
             :key="habit.id"
@@ -274,9 +323,6 @@ onMounted(load)
               :data-grip="habit.id"
               :aria-label="`Reorder ${habit.name}. Drag, or use the up and down arrow keys.`"
               @pointerdown="startDrag($event, habit)"
-              @pointermove="dragOver($event, habit)"
-              @pointerup="endDrag(habit)"
-              @pointercancel="endDrag(habit)"
               @keydown="nudge($event, habit)"
             >⠿</button>
             <EditableName
@@ -321,7 +367,7 @@ onMounted(load)
         <p v-if="upcoming.length === 0" class="habits__state">
           Nothing queued. Add habits here to take on later.
         </p>
-        <ul class="habits__list">
+        <ul class="habits__list" data-habit-list="upcoming">
           <li
             v-for="habit in upcoming"
             :key="habit.id"
@@ -336,9 +382,6 @@ onMounted(load)
               :data-grip="habit.id"
               :aria-label="`Reorder ${habit.name}. Drag, or use the up and down arrow keys.`"
               @pointerdown="startDrag($event, habit)"
-              @pointermove="dragOver($event, habit)"
-              @pointerup="endDrag(habit)"
-              @pointercancel="endDrag(habit)"
               @keydown="nudge($event, habit)"
             >⠿</button>
             <EditableName
@@ -356,7 +399,7 @@ onMounted(load)
 
       <section v-if="archived.length" class="habits__section">
         <h2 class="habits__title">Archived</h2>
-        <ul class="habits__list">
+        <ul class="habits__list" data-habit-list="archived">
           <li
             v-for="habit in archived"
             :key="habit.id"
@@ -371,9 +414,6 @@ onMounted(load)
               :data-grip="habit.id"
               :aria-label="`Reorder ${habit.name}. Drag, or use the up and down arrow keys.`"
               @pointerdown="startDrag($event, habit)"
-              @pointermove="dragOver($event, habit)"
-              @pointerup="endDrag(habit)"
-              @pointercancel="endDrag(habit)"
               @keydown="nudge($event, habit)"
             >⠿</button>
             <span class="habits__name habits__name--muted">{{ habit.name }}</span>
