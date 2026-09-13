@@ -1,4 +1,5 @@
 import { Pool } from '@neondatabase/serverless'
+import { sql } from 'drizzle-orm'
 import { drizzle } from 'drizzle-orm/neon-serverless'
 import * as schema from './schema.js'
 
@@ -32,6 +33,31 @@ function requireConnectionString(): string {
 /** Whether a connection string is present. Never reveals the value. */
 export function isDatabaseConfigured(): boolean {
   return Boolean(process.env.DATABASE_URL)
+}
+
+export type DatabaseStatus = 'reachable' | 'unreachable' | 'not configured'
+
+/**
+ * Whether the database can actually be reached, not merely whether a string
+ * was supplied.
+ *
+ * The distinction is the whole value of the check. `isDatabaseConfigured`
+ * answers a question about an environment variable, and a health endpoint
+ * built on it reported "configured" while the app was entirely unable to
+ * serve — which is worse than no check, because it reads as reassurance. A
+ * password rotation or a moved endpoint is exactly the case it must catch,
+ * and exactly the case presence cannot.
+ */
+export async function databaseStatus(): Promise<DatabaseStatus> {
+  if (!isDatabaseConfigured()) return 'not configured'
+  try {
+    await db.execute(sql`select 1`)
+    return 'reachable'
+  } catch {
+    // Deliberately swallowed: the reason can carry the connection string in
+    // its properties, and this value is served to anyone (D-18's hazard).
+    return 'unreachable'
+  }
 }
 
 let pooled: Pool | undefined

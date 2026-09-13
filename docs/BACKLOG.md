@@ -62,6 +62,18 @@ schedule strict? Those two answers change most of the logic above.
 
 ## Smaller, already identified
 
+- **Habits rows break badly at narrow widths.** The row is a horizontal flex, so as the window
+  shrinks the `⋯` menu wraps onto its own line below the content — the one control that must
+  always be reachable is the first thing to move. The cadence and target text is squeezed out
+  before that.
+  Wanted: below some width the row switches from horizontal to vertical, so the name is on top
+  and the facts sit beneath it, while the `⋯` stays pinned to the top right. A breakpoint rather
+  than `flex-wrap`, so every row breaks at the same width and the list stays uniform — wrapping
+  would reflow each row differently depending on how long its name and unit happen to be, which
+  is the inconsistency this is meant to avoid.
+  The dashboard already solved the same problem by stacking text beside a fixed-width grid;
+  worth reusing that thinking rather than inventing a second answer.
+
 - **`kind`, `unit` and `notesEnabled` still cannot be edited.** `/habits` now edits a habit's
   name, target and cadence behind its Edit action, but not these three. `notesEnabled` is the
   one that bites: notes browsing exists, and there is no way to switch notes on for a habit that
