@@ -3,6 +3,9 @@
   "private": true,
   "version": "0.0.0",
   "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
   "scripts": {
     "dev": "run-p dev:api dev:web",
     "dev:web": "vite",
@@ -25,6 +28,7 @@
     "@vueuse/core": "^14.4.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
+    "dotenv": "^17.4.2",
     "drizzle-orm": "^0.45.2",
     "hono": "^4.13.7",
     "lucide-vue-next": "^1.0.0",
@@ -40,7 +44,6 @@
     "@vitejs/plugin-vue": "^6.0.8",
     "@vue/tsconfig": "^0.9.1",
     "autoprefixer": "^10.5.6",
-    "dotenv": "^17.4.2",
     "drizzle-kit": "^0.31.10",
     "npm-run-all2": "^9.0.3",
     "postcss": "^8.5.28",

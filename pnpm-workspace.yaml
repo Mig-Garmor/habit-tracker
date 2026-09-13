@@ -1,5 +1,7 @@
 allowBuilds:
-  '@parcel/watcher': true
+  # Optional native watcher for sass's file watching; unrelated to the Neon
+  # migration and not needed here or in CI, so its native build stays off.
+  '@parcel/watcher': false
   esbuild: true
   vue-demi: true
 
