@@ -68,6 +68,14 @@ concrete once the phase before them has landed.
 
 The unique index on `(habitId, date)` carries over unchanged, as does the cascade delete.
 
+## Every query becomes asynchronous
+
+Not a schema concern but the largest mechanical change in the phase: the routes make **13 calls**
+to `.all()`, `.get()` and `.run()` across `dashboard.ts`, `habits.ts` and `log.ts`. Those are
+better-sqlite3's synchronous API. Postgres Drizzle is asynchronous — the query builder is
+awaited directly, `.get()` becomes reading the first row of an awaited result, and every route
+handler that touches the database becomes `async`. The pure-logic modules are untouched.
+
 **D-7 — enums stay TypeScript-level `text({ enum })`, not `pgEnum`.** A real Postgres enum type
 gives database-level integrity, but changing one later needs `ALTER TYPE`, and this app's
 statuses are likely to grow. Zod already validates every write at the edge. The cost of being
@@ -82,7 +90,18 @@ from the original design untouched.
 
 ## Driver and connection
 
-- `@neondatabase/serverless` + `drizzle-orm/neon-http`.
+**D-14 — the driver is `drizzle-orm/neon-serverless` (Pool over WebSocket), not
+`neon-http`.** This corrects an earlier draft of this spec. `neon-http` sends each statement as
+its own HTTP request and its `transaction()` throws outright:
+
+    No transactions support in neon-http driver
+
+`PUT /api/log/:date` depends on a real transaction — it was made atomic precisely so a partial
+day cannot commit while the client is told the save failed. On `neon-http` that route would
+throw on every save. The WebSocket pool costs a little more connection setup per cold start;
+correctness wins.
+
+- `@neondatabase/serverless` (`Pool`) + `drizzle-orm/neon-serverless`.
 - `server/db/client.ts` reads `DATABASE_URL` instead of `DATABASE_PATH`.
 - `better-sqlite3`, `@types/better-sqlite3` and the `DATABASE_PATH` handling are removed, along
   with the WAL and foreign-key pragmas, which are SQLite-specific.
