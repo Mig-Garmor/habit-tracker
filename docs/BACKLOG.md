@@ -60,27 +60,19 @@ schedule strict? Those two answers change most of the logic above.
 
 ---
 
-## UI density and editing
-
-- **Habits page: edit on request, not always.** Every field on a habit row is a live input —
-  target, unit, cadence — alongside a drag grip, a health pill and two buttons. The row is
-  crowded, takes more space than its content needs, and changes size as values change. Show the
-  values as text; reveal the inputs and a Save button only when Edit is clicked. Habit names
-  truncate to 12 characters.
----
-
 ## Smaller, already identified
 
-- **Export/backup script.** A hosted database has durability, but free tiers keep limited
-  history (Neon's free tier is about 7 days) and free providers do sunset. A `pnpm db:export`
-  writing JSON is cheap insurance. Was urgent when data lived in one gitignored SQLite file;
-  became non-urgent once hosted, never became unnecessary.
-- **Rename is the only edit.** A habit's name and target can be changed from `/habits`; its
-  `kind`, `unit` and `notesEnabled` cannot. Deliberate — a fuller edit form deserves its own
-  design pass rather than growing by accretion.
+- **`kind`, `unit` and `notesEnabled` still cannot be edited.** `/habits` now edits a habit's
+  name, target and cadence behind its Edit action, but not these three. `notesEnabled` is the
+  one that bites: notes browsing exists, and there is no way to switch notes on for a habit that
+  was created without them. Changing `kind` is the awkward one — a quantity habit turned binary
+  has values recorded against it that stop meaning anything, so it needs a decision rather than
+  a form field.
 - **Notes hidden by their own flag.** `LogHabitCard` renders the note field only when
   `notesEnabled` is true, so turning the flag off hides an existing note rather than showing it
-  read-only. Latent: nothing in the UI can turn the flag off yet.
+  read-only. Still latent because nothing in the UI can turn the flag off — but it stops being
+  latent the moment the item above is built, and the notes page would then show notes the log
+  screen refuses to display.
 
 ---
 
