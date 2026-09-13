@@ -186,6 +186,18 @@ describe('nextWeek and previousWeek', () => {
   it('round-trip', () => {
     expect(previousWeek(nextWeek('2026-09-07'))).toBe('2026-09-07')
   })
+
+  it('crosses a year boundary', () => {
+    expect(nextWeek('2026-12-28')).toBe('2027-01-04')
+    expect(previousWeek('2027-01-04')).toBe('2026-12-28')
+  })
+
+  it('crosses the daylight-saving change without drifting a day', () => {
+    // Late October is where naive Date arithmetic loses or gains an hour and
+    // slips a calendar day. These helpers compose nextDay/previousDay instead.
+    expect(nextWeek('2026-10-26')).toBe('2026-11-02')
+    expect(previousWeek('2026-11-02')).toBe('2026-10-26')
+  })
 })
 
 describe('isWeekComplete', () => {
@@ -194,7 +206,14 @@ describe('isWeekComplete', () => {
   })
 
   it('is false on the last day of the week, which has not finished', () => {
+    // 2026-09-13 is the Sunday of the week starting 2026-09-07.
     expect(isWeekComplete('2026-09-07', '2026-09-13')).toBe(false)
+  })
+
+  it('is false mid-week, not only on the last day', () => {
+    // Pins that the guard is about which week `today` falls in, rather than
+    // coincidentally about it being the final day.
+    expect(isWeekComplete('2026-09-07', '2026-09-09')).toBe(false)
   })
 
   it('is true once the week is entirely past', () => {
