@@ -127,3 +127,39 @@ describe('weekSummaries', () => {
     expect(third.met).toBe(true)
   })
 })
+
+describe('streak tolerance (D-25a)', () => {
+  it('keeps a daily habit’s streak alive at six of seven', () => {
+    // The case that motivated the tolerance: without it this is 0 forever.
+    const done = [...daysIn(W1, 6), ...daysIn(W2, 6), ...daysIn(W3, 6)]
+    expect(currentStreak(done, TODAY, ACTIVATED, 7)).toBe(3)
+  })
+
+  it('forgives one short of a 4x cadence', () => {
+    const done = [...daysIn(W1, 3), ...daysIn(W2, 4), ...daysIn(W3, 3)]
+    expect(currentStreak(done, TODAY, ACTIVATED, 4)).toBe(3)
+  })
+
+  it('does not forgive two short', () => {
+    const done = [...daysIn(W1, 4), ...daysIn(W2, 2), ...daysIn(W3, 4)]
+    expect(currentStreak(done, TODAY, ACTIVATED, 4)).toBe(1)
+  })
+
+  it('never forgives an empty week, whatever the cadence', () => {
+    // The floor. "One short" of a cadence of 1 would be none, and a weekly
+    // habit never done at all would otherwise keep its streak forever.
+    expect(currentStreak([], TODAY, ACTIVATED, 1)).toBe(0)
+    expect(currentStreak([], TODAY, ACTIVATED, 7)).toBe(0)
+  })
+
+  it('still requires the full cadence for a 1x habit', () => {
+    const done = [...daysIn(W1, 1), ...daysIn(W2, 1), ...daysIn(W3, 1)]
+    expect(currentStreak(done, TODAY, ACTIVATED, 1)).toBe(3)
+  })
+
+  it('leaves the rate strict — tolerance is streak-only', () => {
+    // 6 of 7 is a kept streak but NOT a met week: the rate must still show it.
+    const done = [...daysIn(W1, 6), ...daysIn(W2, 6), ...daysIn(W3, 6)]
+    expect(completionRate(done, TODAY, ACTIVATED, 7)).toBeCloseTo(6 / 7, 5)
+  })
+})

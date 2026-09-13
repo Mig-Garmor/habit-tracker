@@ -8,6 +8,12 @@ import {
  */
 export const WINDOW_WEEKS = 4
 export const GRACE_WEEKS = 2
+/**
+ * A streak forgives one missed occurrence a week (D-25a). Without this, a
+ * daily habit kept 6 days out of 7 has a streak of zero forever — the same
+ * flaw cadence was introduced to fix, just moved onto daily habits.
+ */
+export const STREAK_TOLERANCE = 1
 export const STRUGGLING_BELOW = 0.5
 export const CONSISTENT_AT_OR_ABOVE = 0.8
 
@@ -80,6 +86,16 @@ export function completionRate(
  * progress does not break a streak merely by being unfinished — the same
  * tolerance D-4 gives an unlogged today.
  */
+/**
+ * How many completions a week needs to keep a streak alive: one short of
+ * cadence, but never zero. The floor matters — with a cadence of 1, "one
+ * short" would be none, and a weekly habit never done at all would keep its
+ * streak indefinitely. Showing up at least once is always required.
+ */
+function streakBar(timesPerWeek: number): number {
+  return Math.max(1, Math.max(1, timesPerWeek) - STREAK_TOLERANCE)
+}
+
 export function currentStreak(
   completedDates: Iterable<string>,
   today: string,
@@ -88,21 +104,23 @@ export function currentStreak(
 ): number {
   if (!activatedAt) return 0
 
-  // Enough history that a long streak is not truncated by the scoring window.
   const completed = new Set(completedDates)
-  const expected = Math.max(1, timesPerWeek)
+  // The tolerant bar, not `expected`. Scoring stays strict: completionRate and
+  // the grid's `met` still require the full cadence. Only the streak forgives.
+  const bar = streakBar(timesPerWeek)
   let cursor = startOfWeek(today)
   let streak = 0
 
-  // An unmet current week is skipped rather than counted as a break.
+  // A current week that has not yet cleared the bar is skipped, not counted as
+  // a break — the same tolerance D-4 gives an unlogged today.
   const thisWeekDone = weekDays(cursor).filter(day => completed.has(day)).length
-  if (thisWeekDone < expected) {
+  if (thisWeekDone < bar) {
     cursor = previousWeek(cursor)
   }
 
   while (true) {
     const done = weekDays(cursor).filter(day => completed.has(day)).length
-    if (done < expected) break
+    if (done < bar) break
     streak += 1
     cursor = previousWeek(cursor)
   }
