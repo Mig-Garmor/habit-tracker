@@ -65,21 +65,6 @@ export function startOfWeek(dateKey: string): string {
   return cursor
 }
 
-/**
- * Consecutive completed days ending at today, or at yesterday when today has
- * not been logged yet (D-4) — otherwise every streak reads 0 each morning.
- */
-export function currentStreak(completedDates: Iterable<string>, today: string): number {
-  const completed = new Set(completedDates)
-  let cursor = completed.has(today) ? today : previousDay(today)
-  let streak = 0
-  while (completed.has(cursor)) {
-    streak += 1
-    cursor = previousDay(cursor)
-  }
-  return streak
-}
-
 /** The seven days of the week beginning `weekStart`, Monday first. */
 export function weekDays(weekStart: string): string[] {
   const days = [weekStart]
@@ -119,4 +104,21 @@ export function lastNWeekStarts(n: number, upTo: string): string[] {
  */
 export function isWeekComplete(weekStart: string, today: string): boolean {
   return weekStart < startOfWeek(today)
+}
+
+/**
+ * Every Monday from the week containing `from` to the week containing `upTo`,
+ * ascending, both ends included. Used to describe a rendered date range in
+ * whole weeks rather than the scoring window, which uses `lastNWeekStarts`
+ * instead.
+ */
+export function weekStartsInRange(from: string, upTo: string): string[] {
+  const starts: string[] = []
+  let cursor = startOfWeek(from)
+  const last = startOfWeek(upTo)
+  while (cursor <= last) {
+    starts.push(cursor)
+    cursor = nextWeek(cursor)
+  }
+  return starts
 }

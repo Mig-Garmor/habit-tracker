@@ -98,4 +98,32 @@ describe('buildDashboard', () => {
     expect(result.habits[0]!.rate).toBe(0)
     expect(result.habits[0]!.days.every(d => d.level === 0)).toBe(true)
   })
+
+  // Item 5 of the final-fixes brief: `weeks` must cover the whole rendered
+  // range, not just the (much shorter) scoring window — otherwise a habit
+  // kept for a year only shows the cadence marker on its newest few columns,
+  // which reads as "the rest failed" (D-23).
+  describe('weeks span the rendered range, not the scoring window', () => {
+    // 14 weeks before 2026-09-07 (TODAY's Monday), so a 15-week range.
+    const WIDE_FROM = '2026-06-01'
+
+    it('reports one week summary per week in a 15-week range', () => {
+      const result = buildDashboard([exercise], [], WIDE_FROM, TODAY)
+      expect(result.habits[0]!.weeks).toHaveLength(15)
+    })
+
+    it('still reports met: true for a week the scoring window has aged out', () => {
+      // 2026-06-01..2026-06-07 is the oldest week in the range and, at
+      // cadence 7, is well outside the 5-week scoring window around TODAY
+      // (2026-09-12) — it cannot affect completionRate or health, but the
+      // grid still needs to know it was met.
+      const oldWeekEntries = [
+        '2026-06-01', '2026-06-02', '2026-06-03', '2026-06-04',
+        '2026-06-05', '2026-06-06', '2026-06-07',
+      ].map(date => entry(1, date, null))
+      const result = buildDashboard([exercise], oldWeekEntries, WIDE_FROM, TODAY)
+      const oldWeek = result.habits[0]!.weeks.find(w => w.start === WIDE_FROM)!
+      expect(oldWeek.met).toBe(true)
+    })
+  })
 })

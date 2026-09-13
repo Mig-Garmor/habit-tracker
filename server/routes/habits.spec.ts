@@ -316,7 +316,9 @@ describe('cadence', () => {
       app.request('/api/dashboard', { headers: { cookie } }),
     )
     const row = body.habits.find(h => h.id === habit.id)!
-    expect(row.weeks).toHaveLength(4)
+    // `weeks` now covers the whole rendered range (item 5), which defaults
+    // to DEFAULT_WEEKS (15) columns, not the 4-week scoring window.
+    expect(row.weeks).toHaveLength(15)
     expect(row.weeks.every(week => week.expected === 3)).toBe(true)
   })
 })

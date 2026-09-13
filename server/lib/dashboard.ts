@@ -1,7 +1,7 @@
 import {
-  classifyHealth, completionRate, currentStreak, weekSummaries, type Health, type WeekSummary,
+  classifyHealth, completionRate, currentStreak, summariseWeeks, type Health, type WeekSummary,
 } from './consistency.js'
-import { dateRange } from './date.js'
+import { dateRange, weekStartsInRange } from './date.js'
 import { activityLevel, type ActivityLevel } from './level.js'
 
 export interface DashboardHabitInput {
@@ -100,7 +100,13 @@ export function buildDashboard(
       streak: currentStreak(completedDates, today, habit.activatedAt, habit.timesPerWeek),
       rate: completionRate(completedDates, today, habit.activatedAt, habit.timesPerWeek),
       health: classifyHealth(completedDates, today, habit.activatedAt, habit.timesPerWeek),
-      weeks: weekSummaries(completedDates, today, habit.activatedAt, habit.timesPerWeek),
+      // Every week in the rendered range, not the (shorter) scoring window —
+      // otherwise a habit kept for a year shows the cadence marker on only the
+      // newest few columns, which now reads as "the rest failed" (D-23).
+      // Scoring keeps using weekSummaries/completionRate; this is display only.
+      weeks: habit.activatedAt
+        ? summariseWeeks(completedDates, weekStartsInRange(from, today), habit.timesPerWeek)
+        : [],
     }
   })
 

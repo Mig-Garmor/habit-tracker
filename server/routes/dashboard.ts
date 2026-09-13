@@ -3,7 +3,7 @@ import { Hono } from 'hono'
 import { db } from '../db/client.js'
 import { habitEntries, habits } from '../db/schema.js'
 import { buildDashboard } from '../lib/dashboard.js'
-import { previousDay, startOfWeek, today } from '../lib/date.js'
+import { lastNWeekStarts, today } from '../lib/date.js'
 
 export const dashboardRoutes = new Hono()
 
@@ -17,10 +17,9 @@ dashboardRoutes.get('/', async c => {
     : DEFAULT_WEEKS
 
   const todayKey = today()
-  let from = todayKey
-  for (let i = 0; i < weeks * 7; i++) from = previousDay(from)
-  // Grids start on a week boundary so columns are whole weeks.
-  from = startOfWeek(from)
+  // Grids start on a week boundary so columns are whole weeks — `startOfWeek`
+  // is the only notion of a week, so this walks Mondays rather than days.
+  const from = lastNWeekStarts(weeks, todayKey)[0]!
 
   const active = await db
     .select()

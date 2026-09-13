@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { currentStreak, dateRange, isValidDateKey, isWeekComplete, lastNDays, lastNWeekStarts, nextDay, nextWeek, previousDay, previousWeek, startOfWeek, toDateKey, weekDays } from './date.js'
+import { dateRange, isValidDateKey, isWeekComplete, lastNDays, lastNWeekStarts, nextDay, nextWeek, previousDay, previousWeek, startOfWeek, toDateKey, weekDays, weekStartsInRange } from './date.js'
 
 describe('toDateKey', () => {
   it('formats a local date as YYYY-MM-DD', () => {
@@ -114,32 +114,6 @@ describe('startOfWeek', () => {
   })
 })
 
-describe('currentStreak', () => {
-  it('counts consecutive days ending today', () => {
-    expect(currentStreak(['2026-09-09', '2026-09-10', '2026-09-11'], '2026-09-11')).toBe(3)
-  })
-
-  it('stops at the first gap', () => {
-    expect(currentStreak(['2026-09-08', '2026-09-10', '2026-09-11'], '2026-09-11')).toBe(2)
-  })
-
-  it('is 0 for no history', () => {
-    expect(currentStreak([], '2026-09-11')).toBe(0)
-  })
-
-  it('counts back from an unlogged today (D-4)', () => {
-    expect(currentStreak(['2026-09-09', '2026-09-10', '2026-09-11'], '2026-09-12')).toBe(3)
-  })
-
-  it('includes today when today is completed', () => {
-    expect(currentStreak(['2026-09-11', '2026-09-12'], '2026-09-12')).toBe(2)
-  })
-
-  it('is 0 when neither today nor yesterday is completed', () => {
-    expect(currentStreak(['2026-09-09', '2026-09-10'], '2026-09-12')).toBe(0)
-  })
-})
-
 describe('lastNWeekStarts', () => {
   it('ends with the week containing the given day', () => {
     // 2026-09-13 is a Sunday; its week starts Monday 2026-09-07.
@@ -218,5 +192,22 @@ describe('isWeekComplete', () => {
 
   it('is true once the week is entirely past', () => {
     expect(isWeekComplete('2026-08-31', '2026-09-07')).toBe(true)
+  })
+})
+
+describe('weekStartsInRange', () => {
+  it('returns one Monday when both ends fall in the same week', () => {
+    expect(weekStartsInRange('2026-09-09', '2026-09-11')).toEqual(['2026-09-07'])
+  })
+
+  it('walks every Monday between the two weeks, ascending', () => {
+    expect(weekStartsInRange('2026-08-20', '2026-09-11')).toEqual([
+      '2026-08-17', '2026-08-24', '2026-08-31', '2026-09-07',
+    ])
+  })
+
+  it('snaps both ends to their own Monday, not just the first', () => {
+    // upTo is a Sunday; its week (starting 2026-09-07) must still be included.
+    expect(weekStartsInRange('2026-09-07', '2026-09-13')).toEqual(['2026-09-07'])
   })
 })

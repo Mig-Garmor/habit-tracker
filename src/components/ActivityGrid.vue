@@ -17,9 +17,9 @@ const dayColumns = computed(() => {
 })
 
 /**
- * `weeks` only carries the last 4 weeks (D-... the server always includes the
- * week containing today), so met-ness is looked up by each column's first
- * date rather than by position — the day columns can span a longer range.
+ * `weeks` now covers the whole rendered range, one summary per column, but
+ * met-ness is still looked up by each column's first date rather than by
+ * position — cheap insurance against the two ever drifting out of step again.
  */
 const metStarts = computed(() => new Set(props.weeks?.filter(w => w.met).map(w => w.start) ?? []))
 
