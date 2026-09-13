@@ -445,16 +445,18 @@ onMounted(load)
               </div>
             </template>
             <template v-else>
-              <span
-                class="habits__name"
-                :title="isTruncated(habit.name) ? habit.name : undefined"
-              >{{ truncateName(habit.name) }}</span>
-              <span class="habits__summary">{{ summary(habit) }}</span>
-              <HealthPill
-                v-if="health[habit.id]"
-                :health="health[habit.id]!.health"
-                :rate="health[habit.id]!.rate"
-              />
+              <div class="habits__info">
+                <span
+                  class="habits__name"
+                  :title="isTruncated(habit.name) ? habit.name : undefined"
+                >{{ truncateName(habit.name) }}</span>
+                <span class="habits__summary">{{ summary(habit) }}</span>
+                <HealthPill
+                  v-if="health[habit.id]"
+                  :health="health[habit.id]!.health"
+                  :rate="health[habit.id]!.rate"
+                />
+              </div>
               <DropdownMenu>
                 <DropdownMenuTrigger as-child>
                   <Button
@@ -547,11 +549,13 @@ onMounted(load)
               </div>
             </template>
             <template v-else>
-              <span
-                class="habits__name"
-                :title="isTruncated(habit.name) ? habit.name : undefined"
-              >{{ truncateName(habit.name) }}</span>
-              <span class="habits__summary">{{ summary(habit) }}</span>
+              <div class="habits__info">
+                <span
+                  class="habits__name"
+                  :title="isTruncated(habit.name) ? habit.name : undefined"
+                >{{ truncateName(habit.name) }}</span>
+                <span class="habits__summary">{{ summary(habit) }}</span>
+              </div>
               <DropdownMenu>
                 <DropdownMenuTrigger as-child>
                   <Button
