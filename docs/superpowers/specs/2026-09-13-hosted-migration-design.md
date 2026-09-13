@@ -266,6 +266,22 @@ route) would avoid the handshake at the price of two clients and two code paths;
 that is not worth it for a single-user app, and the decision should be revisited
 only if cold starts become a real complaint.
 
+**D-19 — migrations run during the Vercel production build, superseding the
+manual half of D-13.** D-13 kept migrations human-invoked so a bad schema
+change could not ship itself. The cost of that showed up immediately:
+schema-dependent code was merged and deployed while its migration had not run,
+so every query referenced a column that did not exist and the app served
+nothing but 500s. `/api/health` stayed green throughout, because it checks
+configuration rather than schema, so the app looked half-alive rather than
+broken.
+
+Code and schema now arrive together. What remains of D-13's protection: only
+`VERCEL_ENV=production` migrates, so the preview build on every pull request
+does not touch a database; a failed migration fails the build, so code whose
+schema did not apply is never promoted; and nothing runs on a developer
+machine, where `pnpm db:migrate` stays the path. The rest of D-13 — one
+catch-all function, static frontend — is unchanged.
+
 **D-17 — relative imports carry a `.js` extension, and the compiler enforces
 it.** `package.json` declares `"type": "module"`, so the JavaScript Vercel
 emits is ESM, and Node ESM will not resolve an extensionless relative import.
