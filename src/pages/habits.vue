@@ -270,7 +270,14 @@ async function updateTarget(habit: Habit) {
  */
 async function updateCadence(habit: Habit) {
   const draft = cadenceDrafts.value[habit.id]
-  if (draft === habit.timesPerWeek || draft === undefined || draft < 1 || draft > 7) {
+  if (draft === habit.timesPerWeek) return
+
+  if (draft === undefined || !Number.isFinite(draft) || draft < 1 || draft > 7) {
+    // The revert used to happen silently, which just relocated the "raw type
+    // error" problem (item 10) from the add form to here: the field snapped
+    // back with no explanation. Reuse the page's existing error ref rather
+    // than inventing a second feedback mechanism.
+    error.value = 'Cadence must be between 1 and 7 times a week — reverted.'
     cadenceDrafts.value[habit.id] = habit.timesPerWeek
     return
   }
@@ -303,6 +310,18 @@ async function confirmActivation() {
   if (habit) await setStatus(habit, 'active')
 }
 
+/**
+ * Vue's `.number` modifier passes an unparseable value straight through
+ * unchanged, so clearing the field leaves `form.timesPerWeek` holding `''`
+ * at runtime even though its declared type is `number` (item 10). Submitting
+ * that raw value used to reach the server's Zod schema and surface a type
+ * error the user never asked for; falling back to daily here keeps clearing
+ * the field as harmless as never having touched it.
+ */
+function normalizedCadence(value: number): number {
+  return Number.isFinite(value) ? value : 7
+}
+
 async function submit(status: 'active' | 'upcoming') {
   error.value = null
   try {
@@ -312,7 +331,7 @@ async function submit(status: 'active' | 'upcoming') {
       unit: form.value.isQuantity ? form.value.unit : null,
       target: form.value.isQuantity ? form.value.target : null,
       notesEnabled: form.value.notesEnabled,
-      timesPerWeek: form.value.timesPerWeek,
+      timesPerWeek: normalizedCadence(form.value.timesPerWeek),
       status,
     })
     form.value = {

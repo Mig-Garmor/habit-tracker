@@ -61,4 +61,36 @@ describe('editing a cadence', () => {
       expect.objectContaining({ name: 'Gym', timesPerWeek: 4 }),
     )
   })
+
+  it('submits daily when the add-form cadence is cleared (item 10)', async () => {
+    const HabitsPage = (await import('./habits.vue')).default
+    const wrapper = mount(HabitsPage, { attachTo: document.body })
+    await flushPromises()
+
+    await wrapper.find('#new-name').setValue('Gym')
+    // Vue's `.number` modifier passes an emptied field through as `''`
+    // rather than coercing or rejecting it.
+    await wrapper.find('#new-cadence').setValue('')
+    await wrapper.find('form').trigger('submit')
+    await flushPromises()
+
+    expect(createHabit).toHaveBeenCalledWith(
+      expect.objectContaining({ name: 'Gym', timesPerWeek: 7 }),
+    )
+  })
+
+  it('shows an error and reverts when the row editor cadence is cleared', async () => {
+    const HabitsPage = (await import('./habits.vue')).default
+    const wrapper = mount(HabitsPage, { attachTo: document.body })
+    await flushPromises()
+
+    const field = wrapper.find('[data-cadence="1"]')
+    await field.setValue('')
+    await field.trigger('blur')
+    await flushPromises()
+
+    expect(updateHabit).not.toHaveBeenCalled()
+    expect(wrapper.find<HTMLInputElement>('[data-cadence="1"]').element.value).toBe('4')
+    expect(wrapper.text()).toContain('reverted')
+  })
 })
