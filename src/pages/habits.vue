@@ -375,7 +375,7 @@ onMounted(load)
             v-for="habit in active"
             :key="habit.id"
             class="habits__row"
-            :class="{ 'habits__row--dragging': draggingId === habit.id }"
+            :class="{ 'habits__row--dragging': draggingId === habit.id, 'habits__row--editing': editingId === habit.id }"
           >
             <button
               v-if="active.length > 1"
@@ -388,55 +388,61 @@ onMounted(load)
               @keydown="nudge($event, habit)"
             >⠿</button>
             <template v-if="editingId === habit.id">
-              <Input
-                :model-value="nameDrafts[habit.id] ?? habit.name"
-                :disabled="busyId === habit.id"
-                class="habits__name-input"
-                :data-name="habit.id"
-                :aria-label="`Name for ${habit.name}`"
-                @update:model-value="nameDrafts[habit.id] = String($event)"
-                @keydown.enter.prevent="saveEdit(habit)"
-                @keydown.esc.prevent="cancelEdit()"
-              />
-              <div v-if="habit.kind === 'quantity'" class="habits__target">
+              <div class="habits__edit">
+                <div class="habits__edit-fields">
                 <Input
-                  type="number"
-                  min="0"
-                  step="any"
-                  inputmode="decimal"
-                  :model-value="targetDrafts[habit.id] ?? ''"
+                  :model-value="nameDrafts[habit.id] ?? habit.name"
                   :disabled="busyId === habit.id"
-                  class="habits__target-input"
-                  :data-target="habit.id"
-                  :aria-label="`Daily target for ${habit.name}`"
-                  @update:model-value="targetDrafts[habit.id] = $event === '' ? null : Number($event)"
-                />
-                <span class="habits__target-unit">{{ habit.unit }}</span>
-              </div>
-              <div class="habits__cadence">
-                <Input
-                  type="number"
-                  min="1"
-                  max="7"
-                  step="1"
-                  inputmode="numeric"
-                  :model-value="cadenceDrafts[habit.id] ?? 7"
-                  :disabled="busyId === habit.id"
-                  class="habits__cadence-input"
-                  :data-cadence="habit.id"
-                  :aria-label="`Times a week for ${habit.name}`"
-                  @update:model-value="cadenceDrafts[habit.id] = Number($event)"
+                  class="habits__name-input"
+                  :data-name="habit.id"
+                  :aria-label="`Name for ${habit.name}`"
+                  @update:model-value="nameDrafts[habit.id] = String($event)"
                   @keydown.enter.prevent="saveEdit(habit)"
                   @keydown.esc.prevent="cancelEdit()"
                 />
-                <span class="habits__cadence-unit">× / week</span>
+                <div v-if="habit.kind === 'quantity'" class="habits__target">
+                  <Input
+                    type="number"
+                    min="0"
+                    step="any"
+                    inputmode="decimal"
+                    :model-value="targetDrafts[habit.id] ?? ''"
+                    :disabled="busyId === habit.id"
+                    class="habits__target-input"
+                    :data-target="habit.id"
+                    :aria-label="`Daily target for ${habit.name}`"
+                    @update:model-value="targetDrafts[habit.id] = $event === '' ? null : Number($event)"
+                  />
+                  <span class="habits__target-unit">{{ habit.unit }}</span>
+                </div>
+                <div class="habits__cadence">
+                  <Input
+                    type="number"
+                    min="1"
+                    max="7"
+                    step="1"
+                    inputmode="numeric"
+                    :model-value="cadenceDrafts[habit.id] ?? 7"
+                    :disabled="busyId === habit.id"
+                    class="habits__cadence-input"
+                    :data-cadence="habit.id"
+                    :aria-label="`Times a week for ${habit.name}`"
+                    @update:model-value="cadenceDrafts[habit.id] = Number($event)"
+                    @keydown.enter.prevent="saveEdit(habit)"
+                    @keydown.esc.prevent="cancelEdit()"
+                  />
+                  <span class="habits__cadence-unit">× / week</span>
+                </div>
+                </div>
+                <div class="habits__edit-actions">
+                <Button size="sm" :disabled="busyId === habit.id" :data-save="habit.id" @click="saveEdit(habit)">
+                  Save
+                </Button>
+                <Button variant="ghost" size="sm" :disabled="busyId === habit.id" @click="cancelEdit()">
+                  Cancel
+                </Button>
+                </div>
               </div>
-              <Button size="sm" :disabled="busyId === habit.id" :data-save="habit.id" @click="saveEdit(habit)">
-                Save
-              </Button>
-              <Button variant="ghost" size="sm" :disabled="busyId === habit.id" @click="cancelEdit()">
-                Cancel
-              </Button>
             </template>
             <template v-else>
               <span
@@ -486,7 +492,7 @@ onMounted(load)
             v-for="habit in upcoming"
             :key="habit.id"
             class="habits__row"
-            :class="{ 'habits__row--dragging': draggingId === habit.id }"
+            :class="{ 'habits__row--dragging': draggingId === habit.id, 'habits__row--editing': editingId === habit.id }"
           >
             <button
               v-if="upcoming.length > 1"
@@ -499,40 +505,46 @@ onMounted(load)
               @keydown="nudge($event, habit)"
             >⠿</button>
             <template v-if="editingId === habit.id">
-              <Input
-                :model-value="nameDrafts[habit.id] ?? habit.name"
-                :disabled="busyId === habit.id"
-                class="habits__name-input"
-                :data-name="habit.id"
-                :aria-label="`Name for ${habit.name}`"
-                @update:model-value="nameDrafts[habit.id] = String($event)"
-                @keydown.enter.prevent="saveEdit(habit)"
-                @keydown.esc.prevent="cancelEdit()"
-              />
-              <div class="habits__cadence">
+              <div class="habits__edit">
+                <div class="habits__edit-fields">
                 <Input
-                  type="number"
-                  min="1"
-                  max="7"
-                  step="1"
-                  inputmode="numeric"
-                  :model-value="cadenceDrafts[habit.id] ?? 7"
+                  :model-value="nameDrafts[habit.id] ?? habit.name"
                   :disabled="busyId === habit.id"
-                  class="habits__cadence-input"
-                  :data-cadence="habit.id"
-                  :aria-label="`Times a week for ${habit.name}`"
-                  @update:model-value="cadenceDrafts[habit.id] = Number($event)"
+                  class="habits__name-input"
+                  :data-name="habit.id"
+                  :aria-label="`Name for ${habit.name}`"
+                  @update:model-value="nameDrafts[habit.id] = String($event)"
                   @keydown.enter.prevent="saveEdit(habit)"
                   @keydown.esc.prevent="cancelEdit()"
                 />
-                <span class="habits__cadence-unit">× / week</span>
+                <div class="habits__cadence">
+                  <Input
+                    type="number"
+                    min="1"
+                    max="7"
+                    step="1"
+                    inputmode="numeric"
+                    :model-value="cadenceDrafts[habit.id] ?? 7"
+                    :disabled="busyId === habit.id"
+                    class="habits__cadence-input"
+                    :data-cadence="habit.id"
+                    :aria-label="`Times a week for ${habit.name}`"
+                    @update:model-value="cadenceDrafts[habit.id] = Number($event)"
+                    @keydown.enter.prevent="saveEdit(habit)"
+                    @keydown.esc.prevent="cancelEdit()"
+                  />
+                  <span class="habits__cadence-unit">× / week</span>
+                </div>
+                </div>
+                <div class="habits__edit-actions">
+                <Button size="sm" :disabled="busyId === habit.id" :data-save="habit.id" @click="saveEdit(habit)">
+                  Save
+                </Button>
+                <Button variant="ghost" size="sm" :disabled="busyId === habit.id" @click="cancelEdit()">
+                  Cancel
+                </Button>
+                </div>
               </div>
-              <Button size="sm" :disabled="busyId === habit.id" :data-save="habit.id" @click="saveEdit(habit)">
-                Save
-              </Button>
-              <Button variant="ghost" size="sm" :disabled="busyId === habit.id" @click="cancelEdit()">
-                Cancel
-              </Button>
             </template>
             <template v-else>
               <span
@@ -574,7 +586,7 @@ onMounted(load)
             v-for="habit in archived"
             :key="habit.id"
             class="habits__row"
-            :class="{ 'habits__row--dragging': draggingId === habit.id }"
+            :class="{ 'habits__row--dragging': draggingId === habit.id, 'habits__row--editing': editingId === habit.id }"
           >
             <button
               v-if="archived.length > 1"
