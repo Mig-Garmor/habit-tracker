@@ -37,7 +37,7 @@ async function park(habitId: number) {
 }
 
 function streakLabel(streak: number) {
-  return streak === 1 ? '1 day streak' : `${streak} day streak`
+  return streak === 1 ? '1 week streak' : `${streak} week streak`
 }
 
 onMounted(load)
@@ -63,7 +63,7 @@ onMounted(load)
         <ul class="dashboard__warnings-list">
           <li v-for="warning in data.warnings" :key="warning.habitId" class="dashboard__warning">
             <span class="dashboard__warning-name">{{ warning.name }}</span>
-            <span class="dashboard__warning-rate">{{ Math.round(warning.rate * 100) }}% of the last 14 days</span>
+            <span class="dashboard__warning-rate">{{ Math.round(warning.rate * 100) }}% of recent weeks</span>
             <Button
               variant="outline"
               size="sm"
@@ -84,6 +84,11 @@ onMounted(load)
         <CardHeader class="dashboard__habit-header">
           <CardTitle>
             {{ habit.name }}
+            <!--
+              A display affordance, not a calculation (D-26 is about the
+              latter — no scoring path branches on daily). "Daily" is what a
+              person calls a cadence of 7; "7× a week" would be worse writing.
+            -->
             <span class="dashboard__cadence">{{ habit.timesPerWeek === 7 ? 'daily' : `${habit.timesPerWeek}× a week` }}</span>
           </CardTitle>
           <HealthPill :health="habit.health" :rate="habit.rate" />
