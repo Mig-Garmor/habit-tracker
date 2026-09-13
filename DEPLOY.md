@@ -57,12 +57,16 @@ Expected `Seeded 4 habits.` — it's a no-op if they already exist, so it can't 
 edge and the function legitimately sees a plain `http:` request. That's the whole reason the
 cookie now reads `x-forwarded-proto` instead of the request URL.
 
-```bash
-curl -s -i -X POST https://<project>.vercel.app/api/auth/logout -H 'content-type: application/json' | grep -i set-cookie
-```
+Sign in at `https://<project>.vercel.app` in the browser, then open devtools → Application →
+Cookies and check the cookie the sign-in **issued**: it must be named `__Host-habit_session`
+and have both **`Secure`** and **`HttpOnly`** ticked.
 
-Expected: the header names **`__Host-habit_session`** and carries **`Secure`**.
-If it shows the plain `habit_session` name, or lacks `Secure`, the fix has not worked —
+(A `curl` on `/api/auth/logout` cannot substitute for this: that route hardcodes `secure: true`
+on every deletion — Hono throws when clearing a `__Host-` cookie without it — so its response
+header is identical whether or not the `x-forwarded-proto` fix even works. Only the cookie an
+actual sign-in issues reflects the real behaviour.)
+
+If it shows the plain `habit_session` name, or either box is unticked, the fix has not worked —
 the session cookie could travel over plain http. Stop and tell me rather than continuing.
 
 ```bash
