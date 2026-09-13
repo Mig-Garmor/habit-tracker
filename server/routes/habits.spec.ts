@@ -11,6 +11,7 @@ vi.mock('../db/client', () => ({
   get db() {
     return holder.db
   },
+  isDatabaseConfigured: () => true,
 }))
 
 let app: { request: (path: string, init?: RequestInit) => Response | Promise<Response> }
