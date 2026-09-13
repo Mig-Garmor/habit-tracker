@@ -179,3 +179,12 @@ export async function updateHabit(id: number, input: UpdateHabitInput): Promise<
   const body = await json<{ habit: Habit }>(await send(`/api/habits/${id}`, 'PATCH', input))
   return body.habit
 }
+
+/**
+ * Sends the complete order for one status group. Whole-list rather than a
+ * position delta, so replaying it is a no-op and a dropped response cannot
+ * leave the server holding an order the client never intended.
+ */
+export async function reorderHabits(ids: number[]): Promise<void> {
+  await send('/api/habits/reorder', 'PUT', { ids })
+}

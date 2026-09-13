@@ -25,6 +25,12 @@ export const habits = pgTable('habits', {
    * would silently break all of it (D-8).
    */
   activatedAt: text('activated_at'),
+  /**
+   * Manual sort order within a status group. Lists order by `position` then
+   * `id`, so rows that share a position (everything, until something is first
+   * dragged) keep their original creation order rather than an arbitrary one.
+   */
+  position: integer('position').notNull().default(0),
   createdAt: timestamp('created_at', { mode: 'string', withTimezone: true })
     .notNull()
     .defaultNow(),

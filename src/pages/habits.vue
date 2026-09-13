@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, nextTick, onMounted, ref } from 'vue'
 import EditableName from '@/components/EditableName.vue'
 import HealthPill from '@/components/HealthPill.vue'
 import {
@@ -11,9 +11,10 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import {
-  createHabit, fetchDashboard, fetchHabits, updateHabit,
-  type Habit, type Health,
+  createHabit, fetchDashboard, fetchHabits, reorderHabits, updateHabit,
+  type Habit, type HabitStatus, type Health,
 } from '@/lib/api'
+import { indexForPointer, moveItem } from '@/lib/reorder'
 
 const all = ref<Habit[]>([])
 const health = ref<Record<number, { health: Health, rate: number }>>({})
@@ -26,6 +27,102 @@ const pendingActivation = ref<Habit | null>(null)
 const targetDrafts = ref<Record<number, number | null>>({})
 
 const form = ref({ name: '', isQuantity: false, unit: 'minutes', target: 10, notesEnabled: false })
+
+const draggingId = ref<number | null>(null)
+/**
+ * The order as the server last confirmed it. Reordering is applied locally
+ * first so dragging feels immediate; if the request fails this is what the
+ * list goes back to, rather than leaving the screen disagreeing with the
+ * database until the next reload.
+ */
+let committedOrder: Habit[] = []
+
+function groupFor(status: HabitStatus): Habit[] {
+  return all.value.filter(habit => habit.status === status)
+}
+
+/**
+ * Writes one group's order back into `all`. The three lists are independent
+ * filters of it, so where the other statuses sit relative to this group does
+ * not matter — only the order within it.
+ */
+function applyGroupOrder(status: HabitStatus, ordered: Habit[]) {
+  all.value = [...all.value.filter(habit => habit.status !== status), ...ordered]
+}
+
+function rowBoxes(fromElement: HTMLElement) {
+  const list = fromElement.closest('ul')
+  if (!list) return []
+  return [...list.querySelectorAll<HTMLElement>('li')].map(row => {
+    const box = row.getBoundingClientRect()
+    return { top: box.top, height: box.height }
+  })
+}
+
+function startDrag(event: PointerEvent, habit: Habit) {
+  const grip = event.currentTarget as HTMLElement
+  // Pointer capture keeps events coming to the grip even when the pointer
+  // leaves it, which it immediately does — the row moves out from under it.
+  grip.setPointerCapture(event.pointerId)
+  draggingId.value = habit.id
+  committedOrder = groupFor(habit.status)
+  event.preventDefault()
+}
+
+function dragOver(event: PointerEvent, habit: Habit) {
+  if (draggingId.value !== habit.id) return
+  const group = groupFor(habit.status)
+  const from = group.findIndex(item => item.id === habit.id)
+  const to = indexForPointer(rowBoxes(event.currentTarget as HTMLElement), event.clientY)
+  if (to !== from) applyGroupOrder(habit.status, moveItem(group, from, to))
+}
+
+async function endDrag(habit: Habit) {
+  if (draggingId.value !== habit.id) return
+  draggingId.value = null
+  await commitOrder(habit.status)
+}
+
+async function commitOrder(status: HabitStatus) {
+  const group = groupFor(status)
+  const ids = group.map(habit => habit.id)
+  if (ids.join() === committedOrder.map(habit => habit.id).join()) return
+
+  const previous = committedOrder
+  committedOrder = group
+  try {
+    await reorderHabits(ids)
+  } catch (e) {
+    applyGroupOrder(status, previous)
+    committedOrder = previous
+    error.value = e instanceof Error ? e.message : 'Could not save the new order.'
+  }
+}
+
+/**
+ * Arrow keys on a focused grip. This is the whole reason the grip is a button:
+ * it gives reordering a keyboard path without putting up and down buttons on
+ * every row.
+ */
+async function nudge(event: KeyboardEvent, habit: Habit) {
+  const delta = event.key === 'ArrowUp' ? -1 : event.key === 'ArrowDown' ? 1 : 0
+  if (delta === 0) return
+  event.preventDefault()
+
+  const group = groupFor(habit.status)
+  const from = group.findIndex(item => item.id === habit.id)
+  const to = from + delta
+  if (to < 0 || to >= group.length) return
+
+  committedOrder = group
+  applyGroupOrder(habit.status, moveItem(group, from, to))
+  await commitOrder(habit.status)
+
+  // The row has moved, so without this focus is left on whatever now occupies
+  // the old position and a second press would move the wrong habit.
+  await nextTick()
+  document.querySelector<HTMLElement>(`[data-grip="${habit.id}"]`)?.focus()
+}
 
 const active = computed(() => all.value.filter(h => h.status === 'active'))
 const upcoming = computed(() => all.value.filter(h => h.status === 'upcoming'))
@@ -163,7 +260,25 @@ onMounted(load)
         <p v-if="active.length === 0" class="habits__state">Nothing active yet.</p>
 
         <ul class="habits__list">
-          <li v-for="habit in active" :key="habit.id" class="habits__row">
+          <li
+            v-for="habit in active"
+            :key="habit.id"
+            class="habits__row"
+            :class="{ 'habits__row--dragging': draggingId === habit.id }"
+          >
+            <button
+              v-if="active.length > 1"
+              type="button"
+              class="habits__grip"
+              :class="{ 'habits__grip--dragging': draggingId === habit.id }"
+              :data-grip="habit.id"
+              :aria-label="`Reorder ${habit.name}. Drag, or use the up and down arrow keys.`"
+              @pointerdown="startDrag($event, habit)"
+              @pointermove="dragOver($event, habit)"
+              @pointerup="endDrag(habit)"
+              @pointercancel="endDrag(habit)"
+              @keydown="nudge($event, habit)"
+            >⠿</button>
             <EditableName
               class="habits__name"
               :name="habit.name"
@@ -207,7 +322,25 @@ onMounted(load)
           Nothing queued. Add habits here to take on later.
         </p>
         <ul class="habits__list">
-          <li v-for="habit in upcoming" :key="habit.id" class="habits__row">
+          <li
+            v-for="habit in upcoming"
+            :key="habit.id"
+            class="habits__row"
+            :class="{ 'habits__row--dragging': draggingId === habit.id }"
+          >
+            <button
+              v-if="upcoming.length > 1"
+              type="button"
+              class="habits__grip"
+              :class="{ 'habits__grip--dragging': draggingId === habit.id }"
+              :data-grip="habit.id"
+              :aria-label="`Reorder ${habit.name}. Drag, or use the up and down arrow keys.`"
+              @pointerdown="startDrag($event, habit)"
+              @pointermove="dragOver($event, habit)"
+              @pointerup="endDrag(habit)"
+              @pointercancel="endDrag(habit)"
+              @keydown="nudge($event, habit)"
+            >⠿</button>
             <EditableName
               class="habits__name"
               :name="habit.name"
@@ -224,7 +357,25 @@ onMounted(load)
       <section v-if="archived.length" class="habits__section">
         <h2 class="habits__title">Archived</h2>
         <ul class="habits__list">
-          <li v-for="habit in archived" :key="habit.id" class="habits__row">
+          <li
+            v-for="habit in archived"
+            :key="habit.id"
+            class="habits__row"
+            :class="{ 'habits__row--dragging': draggingId === habit.id }"
+          >
+            <button
+              v-if="archived.length > 1"
+              type="button"
+              class="habits__grip"
+              :class="{ 'habits__grip--dragging': draggingId === habit.id }"
+              :data-grip="habit.id"
+              :aria-label="`Reorder ${habit.name}. Drag, or use the up and down arrow keys.`"
+              @pointerdown="startDrag($event, habit)"
+              @pointermove="dragOver($event, habit)"
+              @pointerup="endDrag(habit)"
+              @pointercancel="endDrag(habit)"
+              @keydown="nudge($event, habit)"
+            >⠿</button>
             <span class="habits__name habits__name--muted">{{ habit.name }}</span>
             <Button variant="ghost" size="sm" :disabled="busyId === habit.id" @click="setStatus(habit, 'upcoming')">
               Restore

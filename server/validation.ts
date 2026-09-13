@@ -55,3 +55,16 @@ export const logEntrySchema = z.object({
 export const logPayloadSchema = z.object({
   entries: z.array(logEntrySchema).max(100),
 })
+
+/**
+ * A reorder sends the WHOLE order for one status group, not a position delta.
+ * Whole-list is idempotent and cannot drift: replaying it is a no-op, whereas
+ * "move habit 4 to index 2" depends on what the client believed the list was.
+ * The route additionally checks the ids are exactly one complete group.
+ */
+export const reorderHabitsSchema = z.object({
+  ids: z
+    .array(z.number().int().positive())
+    .min(1, 'Expected at least one habit')
+    .refine(ids => new Set(ids).size === ids.length, 'The same habit appears twice'),
+})

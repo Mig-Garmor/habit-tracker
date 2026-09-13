@@ -27,6 +27,23 @@
     &--compact {
       @apply border-0 p-0;
     }
+
+    &--dragging {
+      @apply border-primary/40 bg-accent/40 shadow-sm;
+    }
+  }
+
+  &__grip {
+    /* touch-none is load-bearing on mobile: without it the browser claims the
+       gesture for scrolling and the row never moves. */
+    @apply -my-1 -ml-1 shrink-0 cursor-grab touch-none select-none rounded px-1 py-1;
+    @apply text-base leading-none text-muted-foreground/60;
+    @apply hover:text-foreground;
+    @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring;
+
+    &--dragging {
+      @apply cursor-grabbing text-foreground;
+    }
   }
 
   &__name {
