@@ -19,7 +19,10 @@
  * routes — static files and functions — before it applies rewrites.
  */
 export default {
-  fetch(request: Request) {
+  // No parameter: Vercel compiles this file with a different `Request` type
+  // than the local toolchain resolves, and `request.method` failed its build
+  // while passing typecheck here. The probe never needed it.
+  fetch() {
     return Response.json({
       pong: true,
       // Whether env vars reach a function at all, without revealing any value.
@@ -33,7 +36,6 @@ export default {
         VITE_GOOGLE_CLIENT_ID: Boolean(process.env.VITE_GOOGLE_CLIENT_ID),
       },
       node: process.version,
-      method: request.method,
     })
   },
 }
