@@ -2,7 +2,7 @@
 import { RouterLink, RouterView } from 'vue-router'
 import { useAuth } from '@/lib/auth'
 
-const { email, signOut } = useAuth()
+const { status, signOut } = useAuth()
 
 async function handleSignOut() {
   await signOut()
@@ -15,11 +15,17 @@ async function handleSignOut() {
     <header class="app__header">
       <nav class="app__nav">
         <RouterLink to="/" class="app__brand">Habit Tracker</RouterLink>
-        <RouterLink to="/log" class="app__link">Log</RouterLink>
-        <RouterLink to="/habits" class="app__link">Habits</RouterLink>
-        <button v-if="email" type="button" class="app__signout" @click="handleSignOut">
-          Sign out
-        </button>
+        <!--
+          One condition for everything that only means something once signed in,
+          so the links and the sign-out button cannot drift apart. `status` is
+          'unknown' until /api/auth/me answers, which correctly hides these on
+          first paint rather than flashing them at a signed-out visitor.
+        -->
+        <template v-if="status === 'in'">
+          <RouterLink to="/log" class="app__link">Log</RouterLink>
+          <RouterLink to="/habits" class="app__link">Habits</RouterLink>
+          <button type="button" class="app__signout" @click="handleSignOut">Sign out</button>
+        </template>
       </nav>
     </header>
 
