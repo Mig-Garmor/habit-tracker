@@ -102,8 +102,16 @@ onMounted(load)
         about a third of its old height and every card is the same height
         rather than varying with how much text it happens to carry.
       -->
+      <!--
+        Text beside the grid, not above it. The grid is only ~150px wide, so a
+        full-width card leaves a column of unused space to its right — and the
+        text was being crammed onto one line, and truncated, while that space
+        sat empty. Stacking the text into that column reads better AND makes
+        the row shorter, because its height becomes the taller of the two
+        rather than their sum.
+      -->
       <article v-for="habit in data.habits" :key="habit.id" class="dashboard__habit">
-        <div class="dashboard__habit-line">
+        <div class="dashboard__habit-info">
           <h2 class="dashboard__habit-name" :title="isTruncated(habit.name) ? habit.name : undefined">
             {{ truncateName(habit.name) }}
           </h2>
@@ -112,15 +120,18 @@ onMounted(load)
             no scoring path branches on daily). "Daily" is what a person calls
             a cadence of 7; "7× a week" would be worse writing.
           -->
-          <span class="dashboard__habit-facts">
-            {{ facts(habit) }}<span
-              v-if="targetText(habit)"
-              class="dashboard__habit-target"
-            > · {{ targetText(habit) }}</span>
+          <span class="dashboard__habit-facts">{{ facts(habit) }}</span>
+          <span v-if="targetText(habit)" class="dashboard__habit-facts">
+            target {{ targetText(habit) }}
           </span>
-          <HealthPill :health="habit.health" :rate="habit.rate" />
+          <HealthPill :health="habit.health" :rate="habit.rate" class="dashboard__habit-pill" />
         </div>
-        <ActivityGrid :days="habit.days" :unit="habit.unit" :weeks="habit.weeks" />
+        <ActivityGrid
+          class="dashboard__habit-grid"
+          :days="habit.days"
+          :unit="habit.unit"
+          :weeks="habit.weeks"
+        />
       </article>
     </template>
   </div>

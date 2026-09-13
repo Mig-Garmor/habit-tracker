@@ -2,15 +2,17 @@
   /* One place to tune density. The grid's HEIGHT comes from its seven day-rows,
      never from how many weeks are shown, so the square size is the only lever
      that makes a habit shorter — which is what fitting six on a screen needs. */
-  --day-size: 0.5rem;
+  /* One place to tune density. With the text beside the grid rather than above
+     it, a row is as tall as the taller of the two — so the squares can be
+     bigger here than when everything stacked, and still fit six on a screen. */
+  --day-size: 0.75rem;
   --day-gap: 0.125rem;
 
-  /* Denser on a phone, where the whole point is seeing six habits without
-     scrolling and there are ~110px less room than the emulator suggests once
-     Safari's chrome is counted. Squares stay links, but tapping an exact day
-     is not what this view is for — the Log page is. */
+  /* Smaller on a phone, where the grid shares 375px with the text column.
+     Desktop keeps the original 12px: putting the text beside the grid, rather
+     than above it, freed the height that shrinking them was paying for. */
   @media (max-width: 640px) {
-    --day-size: 0.375rem;
+    --day-size: 0.5rem;
     --day-gap: 0.09375rem;
   }
 

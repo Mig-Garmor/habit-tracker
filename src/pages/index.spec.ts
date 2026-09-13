@@ -106,18 +106,19 @@ describe('the compact habit row', () => {
     expect(wrapper.find('.dashboard__habit-facts').text()).toContain('daily')
   })
 
-  it('keeps the target in its own element, so narrow screens can drop it', async () => {
-    // Hidden by CSS below the sm breakpoint rather than removed from the
-    // string, so the desktop line keeps it. Cutting a word in half reads as
-    // broken; dropping the least important fact reads as brief.
+  it('shows the target on its own line, now that the text stacks', async () => {
+    // It used to be hidden on narrow screens because the one-line layout could
+    // not hold it. Stacking beside the grid uses the empty column to the
+    // grid's right, so there is room and nothing has to be dropped.
     const wrapper = await mountWith({ kind: 'quantity', target: 15, unit: 'minutes', timesPerWeek: 7, streak: 0 })
-    expect(wrapper.find('.dashboard__habit-target').exists()).toBe(true)
-    expect(wrapper.find('.dashboard__habit-target').text()).toContain('15 minutes')
+    const lines = wrapper.findAll('.dashboard__habit-facts').map(n => n.text())
+    expect(lines.some(line => line.includes('15 minutes'))).toBe(true)
   })
 
-  it('has no target element for a binary habit', async () => {
+  it('shows no target line for a binary habit', async () => {
     const wrapper = await mountWith({ kind: 'binary', timesPerWeek: 4, streak: 0 })
-    expect(wrapper.find('.dashboard__habit-target').exists()).toBe(false)
+    const lines = wrapper.findAll('.dashboard__habit-facts').map(n => n.text())
+    expect(lines.some(line => line.includes('target'))).toBe(false)
   })
 
   it('truncates a long name and keeps the whole one in the title', async () => {
