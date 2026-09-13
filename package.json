@@ -31,6 +31,7 @@
     "dotenv": "^17.4.2",
     "drizzle-orm": "^0.45.2",
     "hono": "^4.13.7",
+    "jose": "^6.2.12",
     "lucide-vue-next": "^1.0.0",
     "reka-ui": "^2.10.4",
     "tailwind-merge": "^3.6.0",
