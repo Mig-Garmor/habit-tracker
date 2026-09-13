@@ -51,6 +51,14 @@
       @apply outline-none ring-2 ring-ring;
     }
 
+    /* A ring, not a colour: shading already means "how much", and overloading
+       it would make a noted day read as a bigger day. The ring says only that
+       there is something written here. */
+    &.has-note {
+      @apply ring-1;
+      --tw-ring-color: hsl(var(--foreground) / 0.45);
+    }
+
     &.is-level-1 { background-color: hsl(var(--primary) / 0.25); }
     &.is-level-2 { background-color: hsl(var(--primary) / 0.5); }
     &.is-level-3 { background-color: hsl(var(--primary) / 0.75); }

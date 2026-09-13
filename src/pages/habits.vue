@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, onUnmounted, ref } from 'vue'
+import { useRouter } from 'vue-router'
 import HealthPill from '@/components/HealthPill.vue'
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
@@ -18,6 +19,8 @@ import {
 } from '@/lib/api'
 import { indexForPointer, moveItem } from '@/lib/reorder'
 import { isTruncated, truncateName } from '@/lib/truncate'
+
+const router = useRouter()
 
 const all = ref<Habit[]>([])
 const health = ref<Record<number, { health: Health, rate: number }>>({})
@@ -459,6 +462,11 @@ onMounted(load)
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
                   <DropdownMenuItem :data-edit="habit.id" @select="startEdit(habit)">Edit</DropdownMenuItem>
+                  <DropdownMenuItem
+                    v-if="habit.notesEnabled"
+                    :data-notes="habit.id"
+                    @select="router.push({ path: '/notes', query: { habit: habit.id } })"
+                  >Notes</DropdownMenuItem>
                   <DropdownMenuItem @select="setStatus(habit, 'upcoming')">Park</DropdownMenuItem>
                   <DropdownMenuItem @select="setStatus(habit, 'archived')">Archive</DropdownMenuItem>
                 </DropdownMenuContent>
@@ -545,6 +553,11 @@ onMounted(load)
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
                   <DropdownMenuItem :data-edit="habit.id" @select="startEdit(habit)">Edit</DropdownMenuItem>
+                  <DropdownMenuItem
+                    v-if="habit.notesEnabled"
+                    :data-notes="habit.id"
+                    @select="router.push({ path: '/notes', query: { habit: habit.id } })"
+                  >Notes</DropdownMenuItem>
                   <DropdownMenuItem @select="requestActivation(habit)">Activate</DropdownMenuItem>
                   <DropdownMenuItem @select="setStatus(habit, 'archived')">Archive</DropdownMenuItem>
                 </DropdownMenuContent>

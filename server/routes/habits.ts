@@ -1,8 +1,8 @@
 import { zValidator } from '@hono/zod-validator'
-import { asc, eq, inArray } from 'drizzle-orm'
+import { and, asc, desc, eq, inArray, isNotNull, ne } from 'drizzle-orm'
 import { Hono } from 'hono'
 import { db } from '../db/client.js'
-import { habits, habitStatuses } from '../db/schema.js'
+import { habitEntries, habits, habitStatuses } from '../db/schema.js'
 import { today } from '../lib/date.js'
 import { createHabitSchema, quantityIsComplete, reorderHabitsSchema, updateHabitSchema } from '../validation.js'
 
@@ -71,6 +71,47 @@ habitsRoutes.put('/reorder', zValidator('json', reorderHabitsSchema), async c =>
     }
 
     return c.json({ ok: true })
+  })
+})
+
+/**
+ * Every note a habit carries, newest first.
+ *
+ * Separate from the dashboard because that only reaches back fifteen weeks,
+ * and a note is worth keeping longer than the grid that happens to show it.
+ * Days with no note are left out: a blank is not a note, and padding the list
+ * with empties would make it useless for browsing, which is the whole point.
+ */
+habitsRoutes.get('/:id/notes', async c => {
+  const id = Number(c.req.param('id'))
+  if (!Number.isInteger(id)) {
+    return c.json({ error: 'Invalid habit id' }, 400)
+  }
+
+  const [habit] = await db.select().from(habits).where(eq(habits.id, id))
+  if (!habit) {
+    return c.json({ error: 'Habit not found' }, 404)
+  }
+
+  const rows = await db
+    .select({
+      date: habitEntries.date,
+      note: habitEntries.note,
+      completed: habitEntries.completed,
+      value: habitEntries.value,
+    })
+    .from(habitEntries)
+    .where(and(
+      eq(habitEntries.habitId, id),
+      isNotNull(habitEntries.note),
+      ne(habitEntries.note, ''),
+    ))
+    // Dates are text in YYYY-MM-DD, which sorts chronologically as text (D-8).
+    .orderBy(desc(habitEntries.date))
+
+  return c.json({
+    habit: { id: habit.id, name: habit.name },
+    notes: rows.map(row => ({ ...row, note: row.note ?? '' })),
   })
 })
 

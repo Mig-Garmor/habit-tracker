@@ -199,3 +199,23 @@ export async function updateHabit(id: number, input: UpdateHabitInput): Promise<
 export async function reorderHabits(ids: number[]): Promise<void> {
   await send('/api/habits/reorder', 'PUT', { ids })
 }
+
+export interface HabitNote {
+  date: string
+  note: string
+  completed: boolean
+  value: number | null
+}
+
+export interface HabitNotesResponse {
+  habit: { id: number, name: string }
+  notes: HabitNote[]
+}
+
+/**
+ * Every note a habit carries, newest first. Separate from the dashboard, which
+ * only reaches back fifteen weeks — a note outlives the grid that shows it.
+ */
+export async function fetchHabitNotes(id: number): Promise<HabitNotesResponse> {
+  return json<HabitNotesResponse>(await request(`/api/habits/${id}/notes`))
+}
