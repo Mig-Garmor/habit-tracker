@@ -274,3 +274,51 @@ describe('PUT /api/habits/reorder', () => {
     expect(response.status).toBe(401)
   })
 })
+
+describe('cadence', () => {
+  it('defaults a new habit to seven times a week', async () => {
+    const { habit } = await readJson<{ habit: Habit }>(post('/api/habits', { name: 'Daily thing' }))
+    expect(habit.timesPerWeek).toBe(7)
+  })
+
+  it('accepts a cadence on create', async () => {
+    const { habit } = await readJson<{ habit: Habit }>(
+      post('/api/habits', { name: 'Gym', timesPerWeek: 4 }),
+    )
+    expect(habit.timesPerWeek).toBe(4)
+  })
+
+  it('accepts a cadence change', async () => {
+    const { habit } = await readJson<{ habit: Habit }>(post('/api/habits', { name: 'Video' }))
+    const { habit: updated } = await readJson<{ habit: Habit }>(
+      patch(`/api/habits/${habit.id}`, { timesPerWeek: 1 }),
+    )
+    expect(updated.timesPerWeek).toBe(1)
+  })
+
+  it('rejects a cadence below one', async () => {
+    expect((await post('/api/habits', { name: 'Never', timesPerWeek: 0 })).status).toBe(400)
+  })
+
+  it('rejects a cadence above seven', async () => {
+    expect((await post('/api/habits', { name: 'Twice daily', timesPerWeek: 8 })).status).toBe(400)
+  })
+
+  it('rejects a fractional cadence', async () => {
+    expect((await post('/api/habits', { name: 'Half', timesPerWeek: 2.5 })).status).toBe(400)
+  })
+
+  it('reports weeks on the dashboard, agreeing with the habit cadence', async () => {
+    const { habit } = await readJson<{ habit: Habit }>(
+      post('/api/habits', { name: 'Cadenced', timesPerWeek: 3 }),
+    )
+    const body = await readJson<{ habits: { id: number, weeks: { expected: number }[] }[] }>(
+      app.request('/api/dashboard', { headers: { cookie } }),
+    )
+    const row = body.habits.find(h => h.id === habit.id)!
+    // `weeks` now covers the whole rendered range (item 5), which defaults
+    // to DEFAULT_WEEKS (15) columns, not the 4-week scoring window.
+    expect(row.weeks).toHaveLength(15)
+    expect(row.weeks.every(week => week.expected === 3)).toBe(true)
+  })
+})

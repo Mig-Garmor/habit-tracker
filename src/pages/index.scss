@@ -48,6 +48,10 @@
     @apply flex-row items-center justify-between gap-3 space-y-0;
   }
 
+  &__cadence {
+    @apply ml-2 text-sm font-normal text-muted-foreground;
+  }
+
   &__habit-meta {
     @apply mb-3 text-sm tabular-nums text-muted-foreground;
   }

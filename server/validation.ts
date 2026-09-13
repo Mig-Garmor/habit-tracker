@@ -9,6 +9,11 @@ export const dateKeySchema = z
 const name = z.string().trim().min(1, 'Name is required').max(80)
 const unit = z.string().trim().min(1).max(20).nullable()
 const target = z.number().positive('Target must be greater than zero').nullable()
+const timesPerWeek = z
+  .number()
+  .int('Cadence must be a whole number of times per week')
+  .min(1, 'A habit must happen at least once a week')
+  .max(7, 'A habit cannot happen more than once a day')
 
 /**
  * A quantity habit is meaningless without something to count and a goal to
@@ -30,6 +35,7 @@ export const createHabitSchema = z
     notesEnabled: z.boolean().default(false),
     // A habit is never created already archived.
     status: z.enum(['active', 'upcoming']).default('active'),
+    timesPerWeek: timesPerWeek.default(7),
   })
   .refine(quantityIsComplete, {
     message: 'A quantity habit needs both a unit and a target',
@@ -43,6 +49,7 @@ export const updateHabitSchema = z.object({
   target: target.optional(),
   notesEnabled: z.boolean().optional(),
   status: z.enum([...habitStatuses]).optional(),
+  timesPerWeek: timesPerWeek.optional(),
 })
 
 export const logEntrySchema = z.object({

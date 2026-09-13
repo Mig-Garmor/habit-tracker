@@ -65,17 +65,60 @@ export function startOfWeek(dateKey: string): string {
   return cursor
 }
 
+/** The seven days of the week beginning `weekStart`, Monday first. */
+export function weekDays(weekStart: string): string[] {
+  const days = [weekStart]
+  for (let i = 1; i < 7; i++) days.push(nextDay(days[i - 1]!))
+  return days
+}
+
+/** The Monday seven days after `weekStart`. */
+export function nextWeek(weekStart: string): string {
+  let cursor = weekStart
+  for (let i = 0; i < 7; i++) cursor = nextDay(cursor)
+  return cursor
+}
+
+/** The Monday seven days before `weekStart`. */
+export function previousWeek(weekStart: string): string {
+  let cursor = weekStart
+  for (let i = 0; i < 7; i++) cursor = previousDay(cursor)
+  return cursor
+}
+
 /**
- * Consecutive completed days ending at today, or at yesterday when today has
- * not been logged yet (D-4) — otherwise every streak reads 0 each morning.
+ * The Mondays of the `n` weeks ending with the week that contains `upTo`,
+ * ascending. The last element is always `startOfWeek(upTo)`.
  */
-export function currentStreak(completedDates: Iterable<string>, today: string): number {
-  const completed = new Set(completedDates)
-  let cursor = completed.has(today) ? today : previousDay(today)
-  let streak = 0
-  while (completed.has(cursor)) {
-    streak += 1
-    cursor = previousDay(cursor)
+export function lastNWeekStarts(n: number, upTo: string): string[] {
+  if (n <= 0) return []
+  const starts = [startOfWeek(upTo)]
+  for (let i = 1; i < n; i++) starts.unshift(previousWeek(starts[0]!))
+  return starts
+}
+
+/**
+ * Whether the whole week beginning `weekStart` is in the past. The week
+ * containing `today` is never complete — not even on its last day, which is
+ * still being lived (D-21).
+ */
+export function isWeekComplete(weekStart: string, today: string): boolean {
+  return weekStart < startOfWeek(today)
+}
+
+/**
+ * Every Monday from the week containing `from` to the week containing `upTo`,
+ * ascending, both ends included. Used to describe a rendered date range in
+ * whole weeks rather than the scoring window, which uses `lastNWeekStarts`
+ * instead.
+ */
+export function weekStartsInRange(from: string, upTo: string): string[] {
+  const starts: string[] = []
+  let cursor = startOfWeek(from)
+  const last = startOfWeek(upTo)
+  while (cursor <= last) {
+    starts.push(cursor)
+    cursor = nextWeek(cursor)
   }
-  return streak
+  return starts
 }

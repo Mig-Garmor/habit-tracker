@@ -10,6 +10,12 @@
   &__week {
     @apply grid gap-1;
     grid-template-rows: repeat(7, minmax(0, 1fr));
+
+    &--met {
+      /* A 2px rule under the column: legible at a glance, and it reads as a
+         property of the week rather than of any single day (D-23). */
+      @apply border-b-2 border-primary/50;
+    }
   }
 
   &__day {

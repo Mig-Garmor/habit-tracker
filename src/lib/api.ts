@@ -15,6 +15,7 @@ export interface Habit {
   status: HabitStatus
   activatedAt: string | null
   createdAt: string
+  timesPerWeek: number
 }
 
 export interface DashboardDay {
@@ -25,6 +26,13 @@ export interface DashboardDay {
   level: ActivityLevel
 }
 
+export interface DashboardWeek {
+  start: string
+  completed: number
+  expected: number
+  met: boolean
+}
+
 export interface DashboardHabit {
   id: number
   name: string
@@ -33,10 +41,12 @@ export interface DashboardHabit {
   target: number | null
   notesEnabled: boolean
   activatedAt: string | null
+  timesPerWeek: number
   health: Health
   streak: number
   rate: number
   days: DashboardDay[]
+  weeks: DashboardWeek[]
 }
 
 export interface DashboardWarning {
@@ -88,6 +98,7 @@ export interface CreateHabitInput {
   target?: number | null
   notesEnabled?: boolean
   status?: 'active' | 'upcoming'
+  timesPerWeek?: number
 }
 
 export type UpdateHabitInput = Partial<Omit<Habit, 'id' | 'createdAt' | 'activatedAt'>>

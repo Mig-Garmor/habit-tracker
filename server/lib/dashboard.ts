@@ -1,5 +1,7 @@
-import { classifyHealth, completionRate, type Health } from './consistency.js'
-import { currentStreak, dateRange } from './date.js'
+import {
+  classifyHealth, completionRate, currentStreak, summariseWeeks, type Health, type WeekSummary,
+} from './consistency.js'
+import { dateRange, weekStartsInRange } from './date.js'
 import { activityLevel, type ActivityLevel } from './level.js'
 
 export interface DashboardHabitInput {
@@ -10,6 +12,8 @@ export interface DashboardHabitInput {
   target: number | null
   notesEnabled: boolean
   activatedAt: string | null
+  /** How many times a week the habit is meant to happen. 7 is daily (D-26). */
+  timesPerWeek: number
 }
 
 export interface DashboardEntryInput {
@@ -33,6 +37,7 @@ export interface DashboardHabit extends DashboardHabitInput {
   streak: number
   rate: number
   days: DashboardDay[]
+  weeks: WeekSummary[]
 }
 
 export interface DashboardWarning {
@@ -92,9 +97,16 @@ export function buildDashboard(
     return {
       ...habit,
       days,
-      streak: currentStreak(completedDates, today),
-      rate: completionRate(completedDates, today, habit.activatedAt),
-      health: classifyHealth(completedDates, today, habit.activatedAt),
+      streak: currentStreak(completedDates, today, habit.activatedAt, habit.timesPerWeek),
+      rate: completionRate(completedDates, today, habit.activatedAt, habit.timesPerWeek),
+      health: classifyHealth(completedDates, today, habit.activatedAt, habit.timesPerWeek),
+      // Every week in the rendered range, not the (shorter) scoring window —
+      // otherwise a habit kept for a year shows the cadence marker on only the
+      // newest few columns, which now reads as "the rest failed" (D-23).
+      // Scoring keeps using weekSummaries/completionRate; this is display only.
+      weeks: habit.activatedAt
+        ? summariseWeeks(completedDates, weekStartsInRange(from, today), habit.timesPerWeek)
+        : [],
     }
   })
 

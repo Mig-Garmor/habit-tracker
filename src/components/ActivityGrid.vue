@@ -1,20 +1,32 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import type { DashboardDay } from '@/lib/api'
+import type { DashboardDay, DashboardWeek } from '@/lib/api'
 
-const props = defineProps<{ days: DashboardDay[], unit: string | null }>()
+const props = defineProps<{ days: DashboardDay[], unit: string | null, weeks?: DashboardWeek[] }>()
 
 /**
  * Columns of seven, oldest first. The server already starts the range on a
  * Monday, so every column is a whole week.
  */
-const weeks = computed(() => {
+const dayColumns = computed(() => {
   const chunks: DashboardDay[][] = []
   for (let i = 0; i < props.days.length; i += 7) {
     chunks.push(props.days.slice(i, i + 7))
   }
   return chunks
 })
+
+/**
+ * `weeks` now covers the whole rendered range, one summary per column, but
+ * met-ness is still looked up by each column's first date rather than by
+ * position — cheap insurance against the two ever drifting out of step again.
+ */
+const metStarts = computed(() => new Set(props.weeks?.filter(w => w.met).map(w => w.start) ?? []))
+
+function isMet(column: DashboardDay[]): boolean {
+  const start = column[0]?.date
+  return start !== undefined && metStarts.value.has(start)
+}
 
 function describe(day: DashboardDay): string {
   if (!day.completed) return `${day.date} — nothing logged`
@@ -27,9 +39,14 @@ function describe(day: DashboardDay): string {
   <div class="activity-grid">
     <div class="activity-grid__scroll">
       <div class="activity-grid__weeks">
-        <div v-for="(week, index) in weeks" :key="index" class="activity-grid__week">
+        <div
+          v-for="(column, index) in dayColumns"
+          :key="index"
+          class="activity-grid__week"
+          :class="{ 'activity-grid__week--met': isMet(column) }"
+        >
           <RouterLink
-            v-for="day in week"
+            v-for="day in column"
             :key="day.date"
             :to="{ path: '/log', query: { date: day.date } }"
             class="activity-grid__day"

@@ -70,6 +70,22 @@ of a number that was wrong for any non-daily habit anyway.
 4×/week habit. The current week counts only once it has met cadence, and its not having done so
 yet does not break the streak — the same tolerance D-4 gives an unlogged today.
 
+**D-25a — a streak forgives one missed occurrence a week, but never an empty
+week.** Amended during implementation, which measured what D-25 actually did:
+a daily habit kept 6 days out of 7 had a streak of zero *forever*. That is the
+very flaw cadence was introduced to fix — a well-kept habit reading as nothing
+— merely relocated from 4×/week habits onto daily ones.
+
+The bar for keeping a streak is therefore `max(1, timesPerWeek - 1)`. The floor
+is not decoration: one short of a cadence of 1 is none, so without it a weekly
+habit never performed at all would keep a streak indefinitely. Showing up at
+least once is always required.
+
+The tolerance is streak-only. `completionRate` and the grid's `met` still
+require the full cadence, so 6-of-7 keeps a streak alive while honestly showing
+a rate of 0.86. A streak is a motivational device and should survive an ordinary
+bad day; a rate is a measurement and should not.
+
 **D-26 — a daily habit is cadence 7.** `timesPerWeek` defaults to 7, so every existing habit
 already has a correct cadence the moment the column exists, and no code path needs a "daily"
 special case. Rejected: a nullable column meaning "daily", which would put a null check in every

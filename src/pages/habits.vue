@@ -25,8 +25,12 @@ const pendingActivation = ref<Habit | null>(null)
 // Draft values for the inline target editor (R13) — keyed by habit id so
 // each row's <input> can be edited independently of the last-loaded habit.
 const targetDrafts = ref<Record<number, number | null>>({})
+// Draft values for the inline cadence editor, same shape as targetDrafts.
+const cadenceDrafts = ref<Record<number, number>>({})
 
-const form = ref({ name: '', isQuantity: false, unit: 'minutes', target: 10, notesEnabled: false })
+const form = ref({
+  name: '', isQuantity: false, unit: 'minutes', target: 10, notesEnabled: false, timesPerWeek: 7,
+})
 
 const draggingId = ref<number | null>(null)
 /**
@@ -197,6 +201,7 @@ async function load() {
     targetDrafts.value = Object.fromEntries(
       habits.filter(h => h.kind === 'quantity').map(h => [h.id, h.target]),
     )
+    cadenceDrafts.value = Object.fromEntries(habits.map(h => [h.id, h.timesPerWeek]))
   } catch (e) {
     error.value = e instanceof Error ? e.message : 'Could not load habits.'
   } finally {
@@ -258,6 +263,38 @@ async function updateTarget(habit: Habit) {
   }
 }
 
+/**
+ * Inline cadence editor for active habits, mirroring `updateTarget` exactly.
+ * Commits on blur or Enter; an out-of-range or unchanged draft reverts to
+ * whatever the server last confirmed rather than sending anything.
+ */
+async function updateCadence(habit: Habit) {
+  const draft = cadenceDrafts.value[habit.id]
+  if (draft === habit.timesPerWeek) return
+
+  if (draft === undefined || !Number.isFinite(draft) || draft < 1 || draft > 7) {
+    // The revert used to happen silently, which just relocated the "raw type
+    // error" problem (item 10) from the add form to here: the field snapped
+    // back with no explanation. Reuse the page's existing error ref rather
+    // than inventing a second feedback mechanism.
+    error.value = 'Cadence must be between 1 and 7 times a week — reverted.'
+    cadenceDrafts.value[habit.id] = habit.timesPerWeek
+    return
+  }
+
+  busyId.value = habit.id
+  error.value = null
+  try {
+    await updateHabit(habit.id, { timesPerWeek: draft })
+    await load()
+  } catch (e) {
+    error.value = e instanceof Error ? e.message : 'Could not update that cadence.'
+    cadenceDrafts.value[habit.id] = habit.timesPerWeek
+  } finally {
+    busyId.value = null
+  }
+}
+
 /** Activating while something is slipping asks first — but never refuses. */
 function requestActivation(habit: Habit) {
   if (strugglingNames.value.length > 0) {
@@ -273,6 +310,18 @@ async function confirmActivation() {
   if (habit) await setStatus(habit, 'active')
 }
 
+/**
+ * Vue's `.number` modifier passes an unparseable value straight through
+ * unchanged, so clearing the field leaves `form.timesPerWeek` holding `''`
+ * at runtime even though its declared type is `number` (item 10). Submitting
+ * that raw value used to reach the server's Zod schema and surface a type
+ * error the user never asked for; falling back to daily here keeps clearing
+ * the field as harmless as never having touched it.
+ */
+function normalizedCadence(value: number): number {
+  return Number.isFinite(value) ? value : 7
+}
+
 async function submit(status: 'active' | 'upcoming') {
   error.value = null
   try {
@@ -282,9 +331,12 @@ async function submit(status: 'active' | 'upcoming') {
       unit: form.value.isQuantity ? form.value.unit : null,
       target: form.value.isQuantity ? form.value.target : null,
       notesEnabled: form.value.notesEnabled,
+      timesPerWeek: normalizedCadence(form.value.timesPerWeek),
       status,
     })
-    form.value = { name: '', isQuantity: false, unit: 'minutes', target: 10, notesEnabled: false }
+    form.value = {
+      name: '', isQuantity: false, unit: 'minutes', target: 10, notesEnabled: false, timesPerWeek: 7,
+    }
     await load()
   } catch (e) {
     error.value = e instanceof Error ? e.message : 'Could not add that habit.'
@@ -346,6 +398,24 @@ onMounted(load)
                 @keydown.enter.prevent="($event.target as HTMLElement).blur()"
               />
               <span class="habits__target-unit">{{ habit.unit }}</span>
+            </div>
+            <div class="habits__cadence">
+              <Input
+                type="number"
+                min="1"
+                max="7"
+                step="1"
+                inputmode="numeric"
+                :model-value="cadenceDrafts[habit.id] ?? 7"
+                :disabled="busyId === habit.id"
+                class="habits__cadence-input"
+                :data-cadence="habit.id"
+                :aria-label="`Times a week for ${habit.name}`"
+                @update:model-value="cadenceDrafts[habit.id] = Number($event)"
+                @blur="updateCadence(habit)"
+                @keydown.enter.prevent="($event.target as HTMLElement).blur()"
+              />
+              <span class="habits__cadence-unit">× / week</span>
             </div>
             <HealthPill
               v-if="health[habit.id]"
@@ -439,6 +509,19 @@ onMounted(load)
             />
             <span>Track an amount each day</span>
           </label>
+
+          <div class="habits__field">
+            <Label for="new-cadence">Times a week</Label>
+            <Input
+              id="new-cadence"
+              v-model.number="form.timesPerWeek"
+              type="number"
+              min="1"
+              max="7"
+              step="1"
+              inputmode="numeric"
+            />
+          </div>
 
           <div v-if="form.isQuantity" class="habits__row habits__row--compact">
             <div class="habits__field">

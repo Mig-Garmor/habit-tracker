@@ -1,0 +1,1 @@
+ALTER TABLE "habits" ADD COLUMN "times_per_week" integer DEFAULT 7 NOT NULL;
