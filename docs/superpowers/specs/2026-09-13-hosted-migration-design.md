@@ -240,6 +240,14 @@ a request to any `/api` route without a cookie returns 401; and the session surv
 The client id is public by nature and may be exposed to the browser. The other three are
 server-only and must never reach the bundle.
 
+**D-15 — `secure` on the session cookie must be decided from the forwarded protocol, not the
+request URL.** Phase 2 derives it from `new URL(c.req.url).protocol === 'https:'`, which is
+correct locally but unsafe here: Vercel terminates TLS at its edge and the function behind it
+can see a plain `http:` request. Derived naively, the production cookie would silently lose its
+`Secure` attribute — the one deployment where it matters most. Phase 3 must read
+`x-forwarded-proto` (or trust the platform's own signal) and verify the attribute on a real
+deployed response rather than assuming it.
+
 **D-13 — migrations are run deliberately, never as part of a deploy.** A build step that
 migrates means a bad schema change ships itself the moment it is pushed, and Vercel builds run
 on every commit. A `pnpm db:migrate:prod` invoked by a human, against an explicit
