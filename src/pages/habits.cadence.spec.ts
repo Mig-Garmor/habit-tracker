@@ -24,6 +24,11 @@ vi.mock('@/lib/api', () => ({
       createdAt: '2026-09-01T00:00:00.000Z', timesPerWeek: 7,
     },
     {
+      id: 3, name: 'Exercise', kind: 'binary', unit: null, target: null,
+      notesEnabled: true, status: 'active', activatedAt: '2026-09-01',
+      createdAt: '2026-09-01T00:00:00.000Z', timesPerWeek: 4,
+    },
+    {
       id: 9, name: 'Upload a video', kind: 'binary', unit: null, target: null,
       notesEnabled: false, status: 'upcoming', activatedAt: null,
       createdAt: '2026-09-01T00:00:00.000Z', timesPerWeek: 1,
@@ -189,6 +194,24 @@ describe('editing a habit', () => {
 
     expect(wrapper.find('[data-name="1"]').exists()).toBe(false)
     expect(wrapper.find('[data-name="2"]').exists()).toBe(true)
+  })
+})
+
+describe('reaching the notes page', () => {
+  it('offers Notes only for a habit that carries them', async () => {
+    const wrapper = await mountPage()
+    // Gym has notesEnabled false in this fixture; a Notes entry there would
+    // lead to a page that can only ever be empty.
+    await wrapper.find('[data-menu="1"]').trigger('click')
+    await flushPromises()
+    expect(document.querySelector('[data-notes="1"]')).toBeNull()
+  })
+
+  it('offers Notes for a habit that has them enabled', async () => {
+    const wrapper = await mountPage()
+    await wrapper.find('[data-menu="3"]').trigger('click')
+    await flushPromises()
+    expect(document.querySelector('[data-notes="3"]')).not.toBeNull()
   })
 })
 

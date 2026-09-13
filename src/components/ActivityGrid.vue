@@ -29,9 +29,14 @@ function isMet(column: DashboardDay[]): boolean {
 }
 
 function describe(day: DashboardDay): string {
-  if (!day.completed) return `${day.date} — nothing logged`
-  if (day.value !== null) return `${day.date} — ${day.value} ${props.unit ?? ''}`.trim()
-  return `${day.date} — done`
+  const what = !day.completed
+    ? 'nothing logged'
+    : day.value !== null
+      ? `${day.value} ${props.unit ?? ''}`.trim()
+      : 'done'
+  // A ringed square with no explanation is just a square that looks different.
+  // Saying so is what makes the marker mean something on hover.
+  return `${day.date} — ${what}${day.note ? ' · has a note' : ''}`
 }
 </script>
 
@@ -50,7 +55,7 @@ function describe(day: DashboardDay): string {
             :key="day.date"
             :to="{ path: '/log', query: { date: day.date } }"
             class="activity-grid__day"
-            :class="`is-level-${day.level}`"
+            :class="[`is-level-${day.level}`, { 'has-note': Boolean(day.note) }]"
             :title="describe(day)"
             :aria-label="describe(day)"
           />

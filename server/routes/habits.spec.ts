@@ -322,3 +322,74 @@ describe('cadence', () => {
     expect(row.weeks.every(week => week.expected === 3)).toBe(true)
   })
 })
+
+describe('GET /api/habits/:id/notes', () => {
+  let noted: Habit
+
+  beforeAll(async () => {
+    const body = await readJson<{ habit: Habit }>(
+      post('/api/habits', { name: 'Noted habit', notesEnabled: true }),
+    )
+    noted = body.habit
+
+    // Written out of order on purpose: the endpoint must sort, not the caller.
+    for (const [date, note] of [
+      ['2026-09-02', 'second note'],
+      ['2026-09-10', 'newest note'],
+      ['2026-09-05', 'middle note'],
+    ] as const) {
+      await app.request(`/api/log/${date}`, {
+        method: 'PUT',
+        headers: { cookie, 'content-type': 'application/json' },
+        body: JSON.stringify({ entries: [{ habitId: noted.id, completed: true, note }] }),
+      })
+    }
+
+    // A day logged with no note at all — must not appear in the list.
+    await app.request('/api/log/2026-09-11', {
+      method: 'PUT',
+      headers: { cookie, 'content-type': 'application/json' },
+      body: JSON.stringify({ entries: [{ habitId: noted.id, completed: true }] }),
+    })
+  })
+
+  function notes(id: number) {
+    return app.request(`/api/habits/${id}/notes`, { headers: { cookie } })
+  }
+
+  it('returns the habit’s notes newest first', async () => {
+    const body = await readJson<{ notes: { date: string, note: string }[] }>(notes(noted.id))
+    expect(body.notes.map(n => n.date)).toEqual(['2026-09-10', '2026-09-05', '2026-09-02'])
+    expect(body.notes[0]!.note).toBe('newest note')
+  })
+
+  it('leaves out days that carry no note', async () => {
+    // A blank day is not a note, and padding the list with empties would make
+    // it useless for browsing.
+    const body = await readJson<{ notes: { date: string }[] }>(notes(noted.id))
+    expect(body.notes.map(n => n.date)).not.toContain('2026-09-11')
+  })
+
+  it('names the habit, so the page does not need a second request', async () => {
+    const body = await readJson<{ habit: { id: number, name: string } }>(notes(noted.id))
+    expect(body.habit).toEqual({ id: noted.id, name: 'Noted habit' })
+  })
+
+  it('returns an empty list for a habit that has never carried one', async () => {
+    const { habit } = await readJson<{ habit: Habit }>(post('/api/habits', { name: 'No notes here' }))
+    const body = await readJson<{ notes: unknown[] }>(notes(habit.id))
+    expect(body.notes).toEqual([])
+  })
+
+  it('404s for a habit that does not exist', async () => {
+    expect((await notes(999_999)).status).toBe(404)
+  })
+
+  it('rejects a non-numeric id rather than querying with NaN', async () => {
+    expect((await app.request('/api/habits/abc/notes', { headers: { cookie } })).status).toBe(400)
+  })
+
+  it('requires a session', async () => {
+    expect((await app.request(`/api/habits/${noted.id}/notes`)).status).toBe(401)
+  })
+})

@@ -1,0 +1,41 @@
+.notes {
+  @apply mx-auto flex w-full max-w-xl flex-col gap-4;
+
+  &__head {
+    @apply flex items-baseline justify-between gap-3;
+  }
+
+  &__title {
+    @apply text-sm font-semibold uppercase tracking-wide text-muted-foreground;
+  }
+
+  &__back {
+    @apply text-sm text-muted-foreground underline-offset-4 hover:underline;
+  }
+
+  &__state {
+    @apply py-6 text-sm text-muted-foreground;
+
+    &--error {
+      @apply text-destructive;
+    }
+  }
+
+  &__list {
+    @apply flex flex-col gap-3;
+  }
+
+  &__item {
+    @apply flex flex-col gap-1 rounded-lg border p-3;
+  }
+
+  &__date {
+    @apply text-xs font-medium tabular-nums text-muted-foreground underline-offset-4 hover:underline;
+  }
+
+  &__text {
+    /* Notes are prose and some run to a paragraph, so they wrap rather than
+       truncate — the whole point of this page is reading them in full. */
+    @apply whitespace-pre-wrap text-sm;
+  }
+}

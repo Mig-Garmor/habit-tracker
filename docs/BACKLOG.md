@@ -75,10 +75,6 @@ schedule strict? Those two answers change most of the logic above.
   history (Neon's free tier is about 7 days) and free providers do sunset. A `pnpm db:export`
   writing JSON is cheap insurance. Was urgent when data lived in one gitignored SQLite file;
   became non-urgent once hosted, never became unnecessary.
-- **Somewhere to read notes back.** Notes on Exercise are only visible by opening the exact day
-  that has one, and the grid does not even hint that a note exists. Writing them is easy;
-  browsing them is not possible. Mark days that carry a note, and offer a reverse-chronological
-  list per habit.
 - **Rename is the only edit.** A habit's name and target can be changed from `/habits`; its
   `kind`, `unit` and `notesEnabled` cannot. Deliberate — a fuller edit form deserves its own
   design pass rather than growing by accretion.
