@@ -460,6 +460,24 @@ onMounted(load)
               :busy="busyId === habit.id"
               @rename="renameHabit(habit, $event)"
             />
+            <div class="habits__cadence">
+              <Input
+                type="number"
+                min="1"
+                max="7"
+                step="1"
+                inputmode="numeric"
+                :model-value="cadenceDrafts[habit.id] ?? 7"
+                :disabled="busyId === habit.id"
+                class="habits__cadence-input"
+                :data-cadence="habit.id"
+                :aria-label="`Times a week for ${habit.name}`"
+                @update:model-value="cadenceDrafts[habit.id] = Number($event)"
+                @blur="updateCadence(habit)"
+                @keydown.enter.prevent="($event.target as HTMLElement).blur()"
+              />
+              <span class="habits__cadence-unit">× / week</span>
+            </div>
             <Button variant="outline" size="sm" :disabled="busyId === habit.id" @click="requestActivation(habit)">
               Activate
             </Button>
