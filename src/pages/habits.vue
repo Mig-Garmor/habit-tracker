@@ -1,12 +1,14 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, onUnmounted, ref } from 'vue'
-import EditableName from '@/components/EditableName.vue'
 import HealthPill from '@/components/HealthPill.vue'
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 import { Button } from '@/components/ui/button'
+import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -15,6 +17,7 @@ import {
   type Habit, type HabitStatus, type Health,
 } from '@/lib/api'
 import { indexForPointer, moveItem } from '@/lib/reorder'
+import { isTruncated, truncateName } from '@/lib/truncate'
 
 const all = ref<Habit[]>([])
 const health = ref<Record<number, { health: Health, rate: number }>>({})
@@ -202,6 +205,7 @@ async function load() {
       habits.filter(h => h.kind === 'quantity').map(h => [h.id, h.target]),
     )
     cadenceDrafts.value = Object.fromEntries(habits.map(h => [h.id, h.timesPerWeek]))
+    nameDrafts.value = Object.fromEntries(habits.map(h => [h.id, h.name]))
   } catch (e) {
     error.value = e instanceof Error ? e.message : 'Could not load habits.'
   } finally {
@@ -222,74 +226,77 @@ async function setStatus(habit: Habit, status: Habit['status']) {
   }
 }
 
-/** Rename an active or upcoming habit. Archived names stay fixed so the
- * label on already-logged history cannot be rewritten. */
-async function renameHabit(habit: Habit, name: string) {
-  busyId.value = habit.id
-  error.value = null
-  try {
-    await updateHabit(habit.id, { name })
-    await load()
-  } catch (e) {
-    error.value = e instanceof Error ? e.message : 'Could not rename that habit.'
-  } finally {
-    busyId.value = null
-  }
+/**
+ * One edit session per habit, committed by Save.
+ *
+ * Every field used to be a live input that saved on blur, so a row carried a
+ * name, a target, a unit and a cadence control at all times — more space than
+ * the content needs, and a height that shifted as values changed. Reading the
+ * list is the common case and editing is occasional, so editing is what moved
+ * behind a click.
+ */
+const editingId = ref<number | null>(null)
+const nameDrafts = ref<Record<number, string>>({})
+
+/** How a cadence reads. Display only — no calculation branches on it (D-26). */
+function cadenceLabel(habit: Habit): string {
+  return habit.timesPerWeek === 7 ? 'daily' : `${habit.timesPerWeek}× / week`
 }
 
-/**
- * Minimal inline target editor for active quantity habits (R13) — the only
- * UI path to the app's headline requirement (raise Meditation 5 → 10 and
- * have past entries re-shade, D-2). Scope is deliberately narrow: target
- * only, active quantity habits only. Commits on blur or Enter.
- */
-async function updateTarget(habit: Habit) {
-  const draft = targetDrafts.value[habit.id]
-  if (draft === habit.target || draft === null || draft === undefined || !(draft > 0)) {
-    targetDrafts.value[habit.id] = habit.target
+/** What a habit shows instead of its inputs while it is not being edited. */
+function summary(habit: Habit): string {
+  if (habit.kind === 'quantity' && habit.target !== null) {
+    return `${habit.target} ${habit.unit ?? ''}`.trim() + `, ${cadenceLabel(habit)}`
+  }
+  return cadenceLabel(habit)
+}
+
+function startEdit(habit: Habit) {
+  // Seeded from the habit, not from whatever a previous cancelled edit left.
+  nameDrafts.value[habit.id] = habit.name
+  targetDrafts.value[habit.id] = habit.target
+  cadenceDrafts.value[habit.id] = habit.timesPerWeek
+  error.value = null
+  editingId.value = habit.id
+}
+
+function cancelEdit() {
+  editingId.value = null
+  error.value = null
+}
+
+async function saveEdit(habit: Habit) {
+  const name = (nameDrafts.value[habit.id] ?? '').trim()
+  const cadence = cadenceDrafts.value[habit.id]
+  const target = targetDrafts.value[habit.id]
+
+  if (!name) {
+    error.value = 'A habit needs a name.'
+    return
+  }
+  if (cadence === undefined || !Number.isFinite(cadence) || cadence < 1 || cadence > 7) {
+    error.value = 'Cadence must be between 1 and 7 times a week.'
+    return
+  }
+  if (habit.kind === 'quantity' && (target === null || target === undefined || !(target > 0))) {
+    error.value = 'A daily target must be greater than zero.'
     return
   }
 
   busyId.value = habit.id
   error.value = null
   try {
-    await updateHabit(habit.id, { target: draft })
+    // One request for the whole row. Three separate PATCHes could half-apply
+    // and leave the habit in a state nobody asked for.
+    await updateHabit(habit.id, {
+      name,
+      timesPerWeek: cadence,
+      ...(habit.kind === 'quantity' ? { target } : {}),
+    })
+    editingId.value = null
     await load()
   } catch (e) {
-    error.value = e instanceof Error ? e.message : 'Could not update that target.'
-    targetDrafts.value[habit.id] = habit.target
-  } finally {
-    busyId.value = null
-  }
-}
-
-/**
- * Inline cadence editor for active habits, mirroring `updateTarget` exactly.
- * Commits on blur or Enter; an out-of-range or unchanged draft reverts to
- * whatever the server last confirmed rather than sending anything.
- */
-async function updateCadence(habit: Habit) {
-  const draft = cadenceDrafts.value[habit.id]
-  if (draft === habit.timesPerWeek) return
-
-  if (draft === undefined || !Number.isFinite(draft) || draft < 1 || draft > 7) {
-    // The revert used to happen silently, which just relocated the "raw type
-    // error" problem (item 10) from the add form to here: the field snapped
-    // back with no explanation. Reuse the page's existing error ref rather
-    // than inventing a second feedback mechanism.
-    error.value = 'Cadence must be between 1 and 7 times a week — reverted.'
-    cadenceDrafts.value[habit.id] = habit.timesPerWeek
-    return
-  }
-
-  busyId.value = habit.id
-  error.value = null
-  try {
-    await updateHabit(habit.id, { timesPerWeek: draft })
-    await load()
-  } catch (e) {
-    error.value = e instanceof Error ? e.message : 'Could not update that cadence.'
-    cadenceDrafts.value[habit.id] = habit.timesPerWeek
+    error.value = e instanceof Error ? e.message : 'Could not save that habit.'
   } finally {
     busyId.value = null
   }
@@ -377,57 +384,86 @@ onMounted(load)
               @pointerdown="startDrag($event, habit)"
               @keydown="nudge($event, habit)"
             >⠿</button>
-            <EditableName
-              class="habits__name"
-              :name="habit.name"
-              :busy="busyId === habit.id"
-              @rename="renameHabit(habit, $event)"
-            />
-            <div v-if="habit.kind === 'quantity'" class="habits__target">
+            <template v-if="editingId === habit.id">
               <Input
-                type="number"
-                min="0"
-                step="any"
-                inputmode="decimal"
-                :model-value="targetDrafts[habit.id] ?? ''"
+                :model-value="nameDrafts[habit.id] ?? habit.name"
                 :disabled="busyId === habit.id"
-                class="habits__target-input"
-                :aria-label="`Daily target for ${habit.name}`"
-                @update:model-value="targetDrafts[habit.id] = $event === '' ? null : Number($event)"
-                @blur="updateTarget(habit)"
-                @keydown.enter.prevent="($event.target as HTMLElement).blur()"
+                class="habits__name-input"
+                :data-name="habit.id"
+                :aria-label="`Name for ${habit.name}`"
+                @update:model-value="nameDrafts[habit.id] = String($event)"
+                @keydown.enter.prevent="saveEdit(habit)"
+                @keydown.esc.prevent="cancelEdit()"
               />
-              <span class="habits__target-unit">{{ habit.unit }}</span>
-            </div>
-            <div class="habits__cadence">
-              <Input
-                type="number"
-                min="1"
-                max="7"
-                step="1"
-                inputmode="numeric"
-                :model-value="cadenceDrafts[habit.id] ?? 7"
-                :disabled="busyId === habit.id"
-                class="habits__cadence-input"
-                :data-cadence="habit.id"
-                :aria-label="`Times a week for ${habit.name}`"
-                @update:model-value="cadenceDrafts[habit.id] = Number($event)"
-                @blur="updateCadence(habit)"
-                @keydown.enter.prevent="($event.target as HTMLElement).blur()"
+              <div v-if="habit.kind === 'quantity'" class="habits__target">
+                <Input
+                  type="number"
+                  min="0"
+                  step="any"
+                  inputmode="decimal"
+                  :model-value="targetDrafts[habit.id] ?? ''"
+                  :disabled="busyId === habit.id"
+                  class="habits__target-input"
+                  :data-target="habit.id"
+                  :aria-label="`Daily target for ${habit.name}`"
+                  @update:model-value="targetDrafts[habit.id] = $event === '' ? null : Number($event)"
+                />
+                <span class="habits__target-unit">{{ habit.unit }}</span>
+              </div>
+              <div class="habits__cadence">
+                <Input
+                  type="number"
+                  min="1"
+                  max="7"
+                  step="1"
+                  inputmode="numeric"
+                  :model-value="cadenceDrafts[habit.id] ?? 7"
+                  :disabled="busyId === habit.id"
+                  class="habits__cadence-input"
+                  :data-cadence="habit.id"
+                  :aria-label="`Times a week for ${habit.name}`"
+                  @update:model-value="cadenceDrafts[habit.id] = Number($event)"
+                  @keydown.enter.prevent="saveEdit(habit)"
+                  @keydown.esc.prevent="cancelEdit()"
+                />
+                <span class="habits__cadence-unit">× / week</span>
+              </div>
+              <Button size="sm" :disabled="busyId === habit.id" :data-save="habit.id" @click="saveEdit(habit)">
+                Save
+              </Button>
+              <Button variant="ghost" size="sm" :disabled="busyId === habit.id" @click="cancelEdit()">
+                Cancel
+              </Button>
+            </template>
+            <template v-else>
+              <span
+                class="habits__name"
+                :title="isTruncated(habit.name) ? habit.name : undefined"
+              >{{ truncateName(habit.name) }}</span>
+              <span class="habits__summary">{{ summary(habit) }}</span>
+              <HealthPill
+                v-if="health[habit.id]"
+                :health="health[habit.id]!.health"
+                :rate="health[habit.id]!.rate"
               />
-              <span class="habits__cadence-unit">× / week</span>
-            </div>
-            <HealthPill
-              v-if="health[habit.id]"
-              :health="health[habit.id]!.health"
-              :rate="health[habit.id]!.rate"
-            />
-            <Button variant="outline" size="sm" :disabled="busyId === habit.id" @click="setStatus(habit, 'upcoming')">
-              Park
-            </Button>
-            <Button variant="ghost" size="sm" :disabled="busyId === habit.id" @click="setStatus(habit, 'archived')">
-              Archive
-            </Button>
+              <DropdownMenu>
+                <DropdownMenuTrigger as-child>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    class="habits__menu-trigger"
+                    :disabled="busyId === habit.id"
+                    :data-menu="habit.id"
+                    :aria-label="`Actions for ${habit.name}`"
+                  >⋯</Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem :data-edit="habit.id" @select="startEdit(habit)">Edit</DropdownMenuItem>
+                  <DropdownMenuItem @select="setStatus(habit, 'upcoming')">Park</DropdownMenuItem>
+                  <DropdownMenuItem @select="setStatus(habit, 'archived')">Archive</DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </template>
           </li>
         </ul>
       </section>
@@ -454,33 +490,66 @@ onMounted(load)
               @pointerdown="startDrag($event, habit)"
               @keydown="nudge($event, habit)"
             >⠿</button>
-            <EditableName
-              class="habits__name"
-              :name="habit.name"
-              :busy="busyId === habit.id"
-              @rename="renameHabit(habit, $event)"
-            />
-            <div class="habits__cadence">
+            <template v-if="editingId === habit.id">
               <Input
-                type="number"
-                min="1"
-                max="7"
-                step="1"
-                inputmode="numeric"
-                :model-value="cadenceDrafts[habit.id] ?? 7"
+                :model-value="nameDrafts[habit.id] ?? habit.name"
                 :disabled="busyId === habit.id"
-                class="habits__cadence-input"
-                :data-cadence="habit.id"
-                :aria-label="`Times a week for ${habit.name}`"
-                @update:model-value="cadenceDrafts[habit.id] = Number($event)"
-                @blur="updateCadence(habit)"
-                @keydown.enter.prevent="($event.target as HTMLElement).blur()"
+                class="habits__name-input"
+                :data-name="habit.id"
+                :aria-label="`Name for ${habit.name}`"
+                @update:model-value="nameDrafts[habit.id] = String($event)"
+                @keydown.enter.prevent="saveEdit(habit)"
+                @keydown.esc.prevent="cancelEdit()"
               />
-              <span class="habits__cadence-unit">× / week</span>
-            </div>
-            <Button variant="outline" size="sm" :disabled="busyId === habit.id" @click="requestActivation(habit)">
-              Activate
-            </Button>
+              <div class="habits__cadence">
+                <Input
+                  type="number"
+                  min="1"
+                  max="7"
+                  step="1"
+                  inputmode="numeric"
+                  :model-value="cadenceDrafts[habit.id] ?? 7"
+                  :disabled="busyId === habit.id"
+                  class="habits__cadence-input"
+                  :data-cadence="habit.id"
+                  :aria-label="`Times a week for ${habit.name}`"
+                  @update:model-value="cadenceDrafts[habit.id] = Number($event)"
+                  @keydown.enter.prevent="saveEdit(habit)"
+                  @keydown.esc.prevent="cancelEdit()"
+                />
+                <span class="habits__cadence-unit">× / week</span>
+              </div>
+              <Button size="sm" :disabled="busyId === habit.id" :data-save="habit.id" @click="saveEdit(habit)">
+                Save
+              </Button>
+              <Button variant="ghost" size="sm" :disabled="busyId === habit.id" @click="cancelEdit()">
+                Cancel
+              </Button>
+            </template>
+            <template v-else>
+              <span
+                class="habits__name"
+                :title="isTruncated(habit.name) ? habit.name : undefined"
+              >{{ truncateName(habit.name) }}</span>
+              <span class="habits__summary">{{ summary(habit) }}</span>
+              <DropdownMenu>
+                <DropdownMenuTrigger as-child>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    class="habits__menu-trigger"
+                    :disabled="busyId === habit.id"
+                    :data-menu="habit.id"
+                    :aria-label="`Actions for ${habit.name}`"
+                  >⋯</Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem :data-edit="habit.id" @select="startEdit(habit)">Edit</DropdownMenuItem>
+                  <DropdownMenuItem @select="requestActivation(habit)">Activate</DropdownMenuItem>
+                  <DropdownMenuItem @select="setStatus(habit, 'archived')">Archive</DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </template>
           </li>
         </ul>
       </section>
