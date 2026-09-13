@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { currentStreak, dateRange, isValidDateKey, lastNDays, nextDay, previousDay, startOfWeek, toDateKey } from './date'
+import { currentStreak, dateRange, isValidDateKey, lastNDays, nextDay, previousDay, startOfWeek, toDateKey } from './date.js'
 
 describe('toDateKey', () => {
   it('formats a local date as YYYY-MM-DD', () => {

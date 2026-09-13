@@ -4,7 +4,7 @@
  * a known state.
  */
 import 'dotenv/config'
-import { databaseHost, pool } from '../server/db/client'
+import { databaseHost, pool } from '../server/db/client.js'
 
 // Drizzle's Postgres migrator keeps its applied-migrations journal in its own
 // `drizzle` schema (migrationsSchema defaults to "drizzle", and this project

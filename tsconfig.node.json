@@ -6,10 +6,17 @@
     "types": ["node"],
     "skipLibCheck": true,
 
-    /* Bundler mode — tsx resolves extensionless relative imports at runtime */
-    "module": "esnext",
-    "moduleResolution": "bundler",
-    "allowImportingTsExtensions": true,
+    /* Node ESM. package.json says "type": "module", so the JavaScript Vercel
+       emits is ESM, and Node ESM requires an explicit file extension on every
+       relative import. nodenext makes the compiler enforce that here, at the
+       only point where it is cheap to notice. Relative imports therefore end
+       in `.js` and TypeScript maps them back to the `.ts` source.
+
+       This was previously "bundler", which resolves extensionless specifiers
+       and so accepted code that Node could not load: every API route failed on
+       Vercel with ERR_MODULE_NOT_FOUND while the build stayed green. */
+    "module": "nodenext",
+    "moduleResolution": "nodenext",
     "verbatimModuleSyntax": true,
     "moduleDetection": "force",
     "noEmit": true,

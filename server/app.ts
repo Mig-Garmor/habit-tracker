@@ -1,10 +1,10 @@
 import { Hono } from 'hono'
-import { isDatabaseConfigured } from './db/client'
-import { requireSession } from './middleware/require-session'
-import { authRoutes } from './routes/auth'
-import { dashboardRoutes } from './routes/dashboard'
-import { habitsRoutes } from './routes/habits'
-import { logRoutes } from './routes/log'
+import { isDatabaseConfigured } from './db/client.js'
+import { requireSession } from './middleware/require-session.js'
+import { authRoutes } from './routes/auth.js'
+import { dashboardRoutes } from './routes/dashboard.js'
+import { habitsRoutes } from './routes/habits.js'
+import { logRoutes } from './routes/log.js'
 
 /**
  * Builds the API. Kept separate from index.ts so tests can call app.request()

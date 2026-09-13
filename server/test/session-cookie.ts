@@ -1,5 +1,5 @@
-import { SESSION_COOKIE_PLAIN } from '../auth/cookie'
-import { createSessionToken } from '../auth/session'
+import { SESSION_COOKIE_PLAIN } from '../auth/cookie.js'
+import { createSessionToken } from '../auth/session.js'
 
 /** The secret the route tests sign with. Set into the environment by each spec. */
 export const TEST_SESSION_SECRET = 'test-session-secret-at-least-32-bytes-long'

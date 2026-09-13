@@ -3,9 +3,9 @@
  * already exist, so it never duplicates or overwrites real history.
  */
 import 'dotenv/config'
-import { db, pool } from '../server/db/client'
-import { habits } from '../server/db/schema'
-import { today } from '../server/lib/date'
+import { db, pool } from '../server/db/client.js'
+import { habits } from '../server/db/schema.js'
+import { today } from '../server/lib/date.js'
 
 const STARTERS = [
   { name: 'Exercise', kind: 'binary', unit: null, target: null, notesEnabled: true },

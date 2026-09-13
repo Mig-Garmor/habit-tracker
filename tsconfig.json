@@ -9,18 +9,22 @@
    * everything reachable from it, tsconfig.node.json is invisible and only
    * this file is read.
    *
-   * Without these options Vercel falls back to defaults, and because
-   * package.json declares `"type": "module"` that means node16 resolution —
-   * which rejects every extensionless relative import in server/ with TS2835
-   * and fails the deployment. Keep these in step with tsconfig.node.json.
+   * These must stay in step with tsconfig.node.json, and in particular must
+   * stay on nodenext. An earlier version set "bundler" here to silence TS2835
+   * on extensionless relative imports. That was the wrong fix: the compiler
+   * was right. package.json declares `"type": "module"`, so the JavaScript
+   * Vercel emits is ESM, and Node ESM cannot resolve an extensionless relative
+   * import. The build went green and every API route then failed at runtime
+   * with ERR_MODULE_NOT_FOUND, which surfaces only as
+   * FUNCTION_INVOCATION_FAILED.
    */
   "compilerOptions": {
     "target": "es2023",
     "lib": ["ES2023"],
     "types": ["node"],
     "skipLibCheck": true,
-    "module": "esnext",
-    "moduleResolution": "bundler",
+    "module": "nodenext",
+    "moduleResolution": "nodenext",
     "verbatimModuleSyntax": true,
     "moduleDetection": "force",
     "noEmit": true,

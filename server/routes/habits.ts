@@ -1,10 +1,10 @@
 import { zValidator } from '@hono/zod-validator'
 import { asc, eq } from 'drizzle-orm'
 import { Hono } from 'hono'
-import { db } from '../db/client'
-import { habits, habitStatuses } from '../db/schema'
-import { today } from '../lib/date'
-import { createHabitSchema, quantityIsComplete, updateHabitSchema } from '../validation'
+import { db } from '../db/client.js'
+import { habits, habitStatuses } from '../db/schema.js'
+import { today } from '../lib/date.js'
+import { createHabitSchema, quantityIsComplete, updateHabitSchema } from '../validation.js'
 
 export const habitsRoutes = new Hono()
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { createSessionToken, readSessionToken, SESSION_MAX_AGE_SECONDS } from './session'
+import { createSessionToken, readSessionToken, SESSION_MAX_AGE_SECONDS } from './session.js'
 
 const SECRET = 'a-test-secret-that-is-at-least-32-bytes-long'
 const OTHER_SECRET = 'a-different-secret-also-at-least-32-bytes'

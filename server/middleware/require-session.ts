@@ -1,7 +1,7 @@
 import type { MiddlewareHandler } from 'hono'
-import { isAllowed, parseAllowlist } from '../auth/allowlist'
-import { readSessionCookie } from '../auth/cookie'
-import { readSessionToken } from '../auth/session'
+import { isAllowed, parseAllowlist } from '../auth/allowlist.js'
+import { readSessionCookie } from '../auth/cookie.js'
+import { readSessionToken } from '../auth/session.js'
 
 /**
  * The actual security boundary. The client's router guard only stops the UI

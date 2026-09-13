@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { isAllowed, parseAllowlist } from './allowlist'
+import { isAllowed, parseAllowlist } from './allowlist.js'
 
 describe('parseAllowlist', () => {
   it('splits a comma-separated list', () => {

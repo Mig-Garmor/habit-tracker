@@ -27,7 +27,7 @@ afterEach(() => {
 })
 
 async function freshClient() {
-  return import('./client')
+  return import('./client.js')
 }
 
 describe('the database client', () => {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { isSecureRequest } from './request'
+import { isSecureRequest } from './request.js'
 
 describe('isSecureRequest', () => {
   // Behind Vercel the function sees plain http; x-forwarded-proto is the truth.
