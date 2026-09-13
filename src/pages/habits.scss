@@ -66,6 +66,18 @@
     @apply text-sm text-muted-foreground;
   }
 
+  &__cadence {
+    @apply flex items-center gap-2;
+  }
+
+  &__cadence-input {
+    @apply w-16 tabular-nums;
+  }
+
+  &__cadence-unit {
+    @apply text-sm text-muted-foreground;
+  }
+
   &__form {
     @apply flex flex-col gap-4 rounded-lg border p-4;
   }
