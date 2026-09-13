@@ -1,3 +1,10 @@
 allowBuilds:
+  '@parcel/watcher': true
   esbuild: true
   vue-demi: true
+
+# Stops pnpm from auto-resolving drizzle-orm's *unused* optional peers (notably
+# better-sqlite3, a native module the migration to Neon Postgres exists to get
+# rid of). @neondatabase/serverless and @electric-sql/pglite are unaffected —
+# both are explicit dependencies in package.json, so they resolve regardless.
+autoInstallPeers: false
