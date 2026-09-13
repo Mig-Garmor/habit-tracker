@@ -20,7 +20,7 @@ export default defineConfig({
   server: {
     port: 5173,
     proxy: {
-      // The Vue app talks to /api; the Hono server on 5174 owns SQLite.
+      // The Vue app talks to /api; the Hono server on 5174 owns the database.
       '/api': {
         target: 'http://localhost:5174',
         changeOrigin: true,

@@ -4,6 +4,9 @@
   "version": "0.0.0",
   "packageManager": "pnpm@11.7.0",
   "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
   "scripts": {
     "dev": "run-p dev:api dev:web",
     "dev:web": "vite",
@@ -16,18 +19,20 @@
     "db:generate": "drizzle-kit generate",
     "db:migrate": "tsx scripts/migrate.ts",
     "db:seed": "tsx scripts/seed.ts",
-    "db:reset": "rm -f data/habits.db data/habits.db-shm data/habits.db-wal && pnpm db:migrate && pnpm db:seed",
+    "db:reset": "tsx scripts/reset.ts && pnpm db:migrate && pnpm db:seed",
     "db:studio": "drizzle-kit studio"
   },
   "dependencies": {
     "@hono/node-server": "^2.1.1",
     "@hono/zod-validator": "^0.9.1",
+    "@neondatabase/serverless": "^1.1.0",
     "@vueuse/core": "^14.4.0",
-    "better-sqlite3": "^13.0.3",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
+    "dotenv": "^17.4.2",
     "drizzle-orm": "^0.45.2",
     "hono": "^4.13.7",
+    "jose": "^6.2.12",
     "lucide-vue-next": "^1.0.0",
     "reka-ui": "^2.10.4",
     "tailwind-merge": "^3.6.0",
@@ -36,7 +41,7 @@
     "zod": "^4.6.2"
   },
   "devDependencies": {
-    "@types/better-sqlite3": "^9.6.0",
+    "@electric-sql/pglite": "^0.5.8",
     "@types/node": "^24.13.3",
     "@vitejs/plugin-vue": "^6.0.8",
     "@vue/tsconfig": "^0.9.1",

@@ -8,24 +8,23 @@ import { createHabitSchema, quantityIsComplete, updateHabitSchema } from '../val
 
 export const habitsRoutes = new Hono()
 
-habitsRoutes.get('/', c => {
+habitsRoutes.get('/', async c => {
   const status = c.req.query('status')
   if (status && !habitStatuses.includes(status as (typeof habitStatuses)[number])) {
     return c.json({ error: `Unknown status: ${status}` }, 400)
   }
 
   const query = db.select().from(habits).$dynamic()
-  const rows = (status ? query.where(eq(habits.status, status as (typeof habitStatuses)[number])) : query)
+  const rows = await (status ? query.where(eq(habits.status, status as (typeof habitStatuses)[number])) : query)
     .orderBy(asc(habits.id))
-    .all()
 
   return c.json({ habits: rows })
 })
 
-habitsRoutes.post('/', zValidator('json', createHabitSchema), c => {
+habitsRoutes.post('/', zValidator('json', createHabitSchema), async c => {
   const input = c.req.valid('json')
 
-  const created = db
+  const [created] = await db
     .insert(habits)
     .values({
       ...input,
@@ -33,18 +32,17 @@ habitsRoutes.post('/', zValidator('json', createHabitSchema), c => {
       activatedAt: input.status === 'active' ? today() : null,
     })
     .returning()
-    .get()
 
   return c.json({ habit: created }, 201)
 })
 
-habitsRoutes.patch('/:id', zValidator('json', updateHabitSchema), c => {
+habitsRoutes.patch('/:id', zValidator('json', updateHabitSchema), async c => {
   const id = Number(c.req.param('id'))
   if (!Number.isInteger(id)) {
     return c.json({ error: 'Invalid habit id' }, 400)
   }
 
-  const existing = db.select().from(habits).where(eq(habits.id, id)).get()
+  const [existing] = await db.select().from(habits).where(eq(habits.id, id))
   if (!existing) {
     return c.json({ error: 'Habit not found' }, 404)
   }
@@ -62,7 +60,7 @@ habitsRoutes.patch('/:id', zValidator('json', updateHabitSchema), c => {
 
   const becomingActive = input.status === 'active' && existing.status !== 'active'
 
-  const updated = db
+  const [updated] = await db
     .update(habits)
     .set({
       ...input,
@@ -71,7 +69,6 @@ habitsRoutes.patch('/:id', zValidator('json', updateHabitSchema), c => {
     })
     .where(eq(habits.id, id))
     .returning()
-    .get()
 
   return c.json({ habit: updated })
 })

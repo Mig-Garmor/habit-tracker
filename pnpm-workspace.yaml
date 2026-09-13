@@ -2,8 +2,6 @@
 # errors out on any it has no decision for. Every package here must therefore
 # carry a deliberate true/false — an omission fails the install.
 allowBuilds:
-  # Ships prebuilt binaries for every platform we use; the script is a no-op.
-  better-sqlite3: true
   esbuild: true
   vue-demi: true
 
@@ -12,3 +10,10 @@ allowBuilds:
   # than built: it exists to speed up `--watch`, CI never watches, and its
   # platform-specific prebuild packages cover the case where it is needed.
   '@parcel/watcher': false
+
+# Stops pnpm from auto-resolving drizzle-orm's *unused* optional peers — notably
+# better-sqlite3, the native module this migration exists to get rid of, which
+# pnpm reinstalled on every frozen-lockfile install until this was set.
+# @neondatabase/serverless and @electric-sql/pglite are unaffected: both are
+# explicit dependencies in package.json, so they resolve regardless.
+autoInstallPeers: false

@@ -2,7 +2,8 @@
  * The four habits being tracked. Safe to re-run: it does nothing if any habits
  * already exist, so it never duplicates or overwrites real history.
  */
-import { db, sqlite } from '../server/db/client'
+import 'dotenv/config'
+import { db, pool } from '../server/db/client'
 import { habits } from '../server/db/schema'
 import { today } from '../server/lib/date'
 
@@ -13,16 +14,16 @@ const STARTERS = [
   { name: 'Record one video', kind: 'binary', unit: null, target: null, notesEnabled: false },
 ] as const
 
-const existing = db.select().from(habits).all()
+const existing = await db.select().from(habits)
 
 if (existing.length > 0) {
   console.log(`Skipped: ${existing.length} habit(s) already exist.`)
 } else {
   const activatedAt = today()
-  db.insert(habits)
+  await db
+    .insert(habits)
     .values(STARTERS.map(habit => ({ ...habit, status: 'active' as const, activatedAt })))
-    .run()
   console.log(`Seeded ${STARTERS.length} habits.`)
 }
 
-sqlite.close()
+await pool.end()

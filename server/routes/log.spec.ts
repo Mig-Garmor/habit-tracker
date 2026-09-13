@@ -1,8 +1,17 @@
-import { mkdtempSync, rmSync } from 'node:fs'
-import { tmpdir } from 'node:os'
-import { join } from 'node:path'
-import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 import type { DashboardResponse } from '../lib/dashboard'
+import { createTestDb } from '../test/pg-harness'
+import { signedCookieHeader, TEST_SESSION_SECRET } from '../test/session-cookie'
+
+const holder = vi.hoisted(() => ({ db: undefined as unknown }))
+
+// A getter, not a value: the database does not exist until beforeAll runs, and
+// the routes read this binding on every call rather than capturing it once.
+vi.mock('../db/client', () => ({
+  get db() {
+    return holder.db
+  },
+}))
 
 interface CreateHabitResponse {
   habit: { id: number }
@@ -31,22 +40,23 @@ interface LogDayResponse {
 }
 
 let app: { request: (path: string, init?: RequestInit) => Response | Promise<Response> }
-let dir: string
 let todayKey: string
 let exerciseId: number
 let meditationId: number
+let closeTestDb: () => Promise<void>
+let cookie: string
 
 async function readJson<T>(response: Response | Promise<Response>): Promise<T> {
   return (await (await response).json()) as T
 }
 
 beforeAll(async () => {
-  dir = mkdtempSync(join(tmpdir(), 'habit-log-'))
-  process.env.DATABASE_PATH = join(dir, 'test.db')
+  process.env.SESSION_SECRET = TEST_SESSION_SECRET
+  cookie = await signedCookieHeader()
 
-  const { db } = await import('../db/client')
-  const { migrate } = await import('drizzle-orm/better-sqlite3/migrator')
-  migrate(db, { migrationsFolder: './drizzle' })
+  const { db, close } = await createTestDb()
+  holder.db = db
+  closeTestDb = close
 
   todayKey = (await import('../lib/date')).today()
   app = (await import('../app')).createApp()
@@ -54,7 +64,7 @@ beforeAll(async () => {
   const create = async (body: unknown) => {
     const { habit } = await readJson<CreateHabitResponse>(app.request('/api/habits', {
       method: 'POST',
-      headers: { 'content-type': 'application/json' },
+      headers: { 'content-type': 'application/json', cookie },
       body: JSON.stringify(body),
     }))
     return habit.id
@@ -64,21 +74,21 @@ beforeAll(async () => {
   meditationId = await create({ name: 'Meditation', kind: 'quantity', unit: 'minutes', target: 10 })
 })
 
-afterAll(() => {
-  rmSync(dir, { recursive: true, force: true })
+afterAll(async () => {
+  await closeTestDb()
 })
 
 function put(date: string, entries: unknown[]) {
   return app.request(`/api/log/${date}`, {
     method: 'PUT',
-    headers: { 'content-type': 'application/json' },
+    headers: { 'content-type': 'application/json', cookie },
     body: JSON.stringify({ entries }),
   })
 }
 
 describe('GET /api/log/:date', () => {
   it('returns every active habit with a null entry when nothing is logged', async () => {
-    const body = await readJson<LogDayResponse>(app.request('/api/log/2026-01-05'))
+    const body = await readJson<LogDayResponse>(app.request('/api/log/2026-01-05', { headers: { cookie } }))
     expect(body.date).toBe('2026-01-05')
     expect(body.isToday).toBe(false)
     expect(body.habits).toHaveLength(2)
@@ -86,22 +96,22 @@ describe('GET /api/log/:date', () => {
   })
 
   it('marks today as today', async () => {
-    const body = await readJson<LogDayResponse>(app.request(`/api/log/${todayKey}`))
+    const body = await readJson<LogDayResponse>(app.request(`/api/log/${todayKey}`, { headers: { cookie } }))
     expect(body.isToday).toBe(true)
   })
 
   it('rejects a malformed date', async () => {
-    const response = await app.request('/api/log/2026-9-5')
+    const response = await app.request('/api/log/2026-9-5', { headers: { cookie } })
     expect(response.status).toBe(400)
   })
 
   it('rejects a date that does not exist', async () => {
-    const response = await app.request('/api/log/2026-02-30')
+    const response = await app.request('/api/log/2026-02-30', { headers: { cookie } })
     expect(response.status).toBe(400)
   })
 
   it('rejects a future date', async () => {
-    const response = await app.request('/api/log/2099-01-01')
+    const response = await app.request('/api/log/2099-01-01', { headers: { cookie } })
     expect(response.status).toBe(400)
   })
 })
@@ -145,7 +155,7 @@ describe('PUT /api/log/:date', () => {
     await put('2026-01-10', [{ habitId: exerciseId, completed: true }])
     await put('2026-01-10', [{ habitId: meditationId, value: 10 }])
 
-    const body = await readJson<LogDayResponse>(app.request('/api/log/2026-01-10'))
+    const body = await readJson<LogDayResponse>(app.request('/api/log/2026-01-10', { headers: { cookie } }))
     const exercise = body.habits.find(h => h.id === exerciseId)!
     expect(exercise.entry!.completed).toBe(true)
   })
@@ -180,13 +190,13 @@ describe('PUT /api/log/:date', () => {
   it('rejects entries for an archived habit', async () => {
     const { habit } = await readJson<CreateHabitResponse>(app.request('/api/habits', {
       method: 'POST',
-      headers: { 'content-type': 'application/json' },
+      headers: { 'content-type': 'application/json', cookie },
       body: JSON.stringify({ name: 'Old habit' }),
     }))
 
     await app.request(`/api/habits/${habit.id}`, {
       method: 'PATCH',
-      headers: { 'content-type': 'application/json' },
+      headers: { 'content-type': 'application/json', cookie },
       body: JSON.stringify({ status: 'archived' }),
     })
 
@@ -197,12 +207,12 @@ describe('PUT /api/log/:date', () => {
   it('rolls back the whole batch when a later entry is invalid', async () => {
     const { habit: archived } = await readJson<CreateHabitResponse>(app.request('/api/habits', {
       method: 'POST',
-      headers: { 'content-type': 'application/json' },
+      headers: { 'content-type': 'application/json', cookie },
       body: JSON.stringify({ name: 'Retired habit' }),
     }))
     await app.request(`/api/habits/${archived.id}`, {
       method: 'PATCH',
-      headers: { 'content-type': 'application/json' },
+      headers: { 'content-type': 'application/json', cookie },
       body: JSON.stringify({ status: 'archived' }),
     })
 
@@ -212,7 +222,7 @@ describe('PUT /api/log/:date', () => {
     ])
     expect(response.status).toBe(400)
 
-    const body = await readJson<LogDayResponse>(app.request('/api/log/2026-01-15'))
+    const body = await readJson<LogDayResponse>(app.request('/api/log/2026-01-15', { headers: { cookie } }))
     const exercise = body.habits.find(h => h.id === exerciseId)!
     expect(exercise.entry).toBeNull()
   })
@@ -220,7 +230,7 @@ describe('PUT /api/log/:date', () => {
 
 describe('GET /api/dashboard', () => {
   it('returns a dense grid for every active habit', async () => {
-    const body = await readJson<DashboardResponse>(app.request('/api/dashboard?weeks=2'))
+    const body = await readJson<DashboardResponse>(app.request('/api/dashboard?weeks=2', { headers: { cookie } }))
     expect(body.today).toBe(todayKey)
     expect(body.habits.length).toBeGreaterThanOrEqual(2)
 
@@ -232,12 +242,12 @@ describe('GET /api/dashboard', () => {
   })
 
   it('clamps an absurd weeks value', async () => {
-    const body = await readJson<DashboardResponse>(app.request('/api/dashboard?weeks=9999'))
+    const body = await readJson<DashboardResponse>(app.request('/api/dashboard?weeks=9999', { headers: { cookie } }))
     expect(body.habits[0]!.days.length).toBeLessThanOrEqual(53 * 7 + 7)
   })
 
   it('falls back to the default for a non-numeric weeks value', async () => {
-    const response = await app.request('/api/dashboard?weeks=banana')
+    const response = await app.request('/api/dashboard?weeks=banana', { headers: { cookie } })
     expect(response.status).toBe(200)
   })
 })

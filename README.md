@@ -1,6 +1,6 @@
 # Habit Tracker
 
-A single-user habit tracker. Data lives in a SQLite file on disk; nothing leaves the machine.
+A single-user habit tracker, backed by Neon Postgres.
 
 ## Stack
 
@@ -11,15 +11,20 @@ A single-user habit tracker. Data lives in a SQLite file on disk; nothing leaves
 | Components | shadcn-vue (reka-ui) |
 | Styling | Tailwind v3, written inside SCSS files |
 | API | Hono on Node |
-| Database | SQLite via Drizzle ORM + better-sqlite3 |
+| Database | Neon Postgres via Drizzle ORM (`neon-serverless`) |
+| Auth | Google Identity Services + a signed session cookie, one allowed email |
 | Tests | Vitest |
 
 ## Getting started
 
+Copy `.env.example` to `.env` and paste a Neon connection string — use a **dev** branch of the
+Neon project, never the production one.
+
 ```bash
 pnpm install
-pnpm db:migrate   # create the schema
-pnpm db:seed      # add four starter habits
+cp .env.example .env   # then paste your DATABASE_URL
+pnpm db:migrate        # create the schema
+pnpm db:seed           # add the four habits
 pnpm dev
 ```
 
@@ -27,6 +32,21 @@ pnpm dev
 Vite proxies `/api/*` to the API, so the browser only ever talks to 5173.
 
 Open http://localhost:5173.
+
+## Signing in
+
+The app is behind a Google sign-in restricted to the addresses in `ALLOWED_EMAILS`.
+An empty list admits nobody.
+
+`GOOGLE_CLIENT_ID` and `VITE_GOOGLE_CLIENT_ID` hold the same value — Vite only exposes
+`VITE_`-prefixed variables to the browser, so the login page cannot read the first one.
+`SESSION_SECRET` signs the session cookie; generate one with `openssl rand -base64 32`.
+
+The OAuth client needs every origin the app runs on listed as an authorised JavaScript
+origin, including `http://localhost:5173` for local development.
+
+Every `/api` route rejects an unauthenticated request; only `/api/health` and `/api/auth/*`
+are open. The router guard in the browser is convenience only and protects nothing.
 
 ## Commands
 
@@ -41,20 +61,19 @@ Open http://localhost:5173.
 | `pnpm db:generate` | Turn schema changes into a migration in `drizzle/` |
 | `pnpm db:migrate` | Apply pending migrations |
 | `pnpm db:seed` | Insert starter habits (no-op if any exist) |
-| `pnpm db:reset` | Drop the database, migrate, and reseed the four habits |
+| `pnpm db:reset` | Drop the schema, migrate, and reseed the four habits |
 | `pnpm db:studio` | Browse the database in Drizzle Studio |
 
 ## Layout
 
 ```
-data/habits.db        your data — gitignored
 drizzle/              generated migration SQL — committed
 server/
   index.ts            listener — binds the port
   app.ts              Hono app + route wiring (used directly by tests, no port needed)
   routes/             /api/habits, /api/dashboard, /api/log
   db/schema.ts        Drizzle tables
-  db/client.ts        better-sqlite3 connection
+  db/client.ts        Neon Postgres connection
   lib/                pure date/level/consistency/dashboard logic (+ .spec.ts each)
 scripts/              migrate.ts, seed.ts
 src/
@@ -122,11 +141,17 @@ The `@1.0.3` pin matters — shadcn-vue 2.x targets Tailwind v4, and this projec
 
 ## Database notes
 
-`data/habits.db` is **gitignored** — your real habit data stays local. A fresh clone gets a
-working database from `pnpm db:migrate && pnpm db:seed`.
+Habit data lives in Neon Postgres. Local development and production use **different branches of
+the same Neon project**, so the dialect can never drift between them.
 
 Changing `server/db/schema.ts` means `pnpm db:generate` (writes a new file into `drizzle/`,
 which *is* committed) followed by `pnpm db:migrate`.
 
-Days are local calendar days keyed `YYYY-MM-DD`, never UTC — see `server/lib/date.ts`. Ticking a
-habit at 11pm must land on that day, not tomorrow.
+`pnpm db:reset` drops the schema and rebuilds it from migrations plus seed data. It is
+destructive and it does not ask — point it at a dev branch, never production.
+
+Days are local calendar days stored as `text` in `YYYY-MM-DD`, never a Postgres `date` — a
+driver returning `Date` objects would break every piece of date logic. See `server/lib/date.ts`.
+
+The route tests run against `pglite`, a real Postgres compiled to WASM, so `pnpm test` needs no
+database and no network.
