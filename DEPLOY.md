@@ -46,7 +46,7 @@ pnpm db:migrate:prod
 Check the host it prints is the production branch, then:
 
 ```bash
-dotenv -e .env.production -- tsx scripts/seed.ts
+pnpm db:seed:prod
 ```
 
 Expected `Seeded 4 habits.` — it's a no-op if they already exist, so it can't duplicate.
