@@ -1,27 +1,46 @@
 .activity-grid {
+  /* One place to tune density. The grid's HEIGHT comes from its seven day-rows,
+     never from how many weeks are shown, so the square size is the only lever
+     that makes a habit shorter — which is what fitting six on a screen needs. */
+  /* One place to tune density. With the text beside the grid rather than above
+     it, a row is as tall as the taller of the two — so the squares can be
+     bigger here than when everything stacked, and still fit six on a screen. */
+  --day-size: 0.75rem;
+  --day-gap: 0.125rem;
+
+  /* Smaller on a phone, where the grid shares 375px with the text column.
+     Desktop keeps the original 12px: putting the text beside the grid, rather
+     than above it, freed the height that shrinking them was paying for. */
+  @media (max-width: 640px) {
+    --day-size: 0.5rem;
+    --day-gap: 0.09375rem;
+  }
+
   &__scroll {
     @apply overflow-x-auto pb-1;
   }
 
   &__weeks {
-    @apply flex gap-1 w-max;
+    @apply flex w-max;
+    gap: var(--day-gap);
   }
 
   &__week {
-    @apply grid gap-1;
+    @apply grid;
+    gap: var(--day-gap);
     grid-template-rows: repeat(7, minmax(0, 1fr));
 
     &--met {
-      /* A 2px rule under the column: legible at a glance, and it reads as a
+      /* A rule under the column: legible at a glance, and it reads as a
          property of the week rather than of any single day (D-23). */
-      @apply border-b-2 border-primary/50;
+      @apply border-b border-primary/50;
     }
   }
 
   &__day {
     @apply block rounded-sm transition-colors;
-    width: 0.75rem;
-    height: 0.75rem;
+    width: var(--day-size);
+    height: var(--day-size);
     background-color: hsl(var(--muted));
 
     &:hover {

@@ -1,5 +1,43 @@
 .dashboard {
-  @apply mx-auto flex w-full max-w-3xl flex-col gap-4;
+  /* gap-2, not gap-4: with six habits on screen the gaps alone were costing
+     more vertical space than a whole habit. */
+  /* max-w-xl, not 3xl: the row holds a text column and a ~210px grid, about
+     450px of content. Stretched across 768px the two sat at opposite edges
+     with a void between them — the same whitespace problem, turned sideways. */
+  @apply mx-auto flex w-full max-w-xl flex-col gap-2;
+
+  &__habit {
+    /* Row, not column: the height becomes the taller of the text and the grid
+       rather than their sum, which is what makes six fit while letting the
+       squares get BIGGER than the one-line version allowed. */
+    @apply flex items-center gap-2 rounded-lg border p-2;
+
+    @screen sm {
+      @apply gap-3 p-3;
+    }
+  }
+
+  &__habit-info {
+    /* min-w-0 so the truncation below actually engages — a flex child defaults
+       to min-width:auto and refuses to shrink below its content. */
+    @apply flex min-w-0 flex-1 flex-col gap-0.5;
+  }
+
+  &__habit-name {
+    @apply truncate text-sm font-semibold;
+  }
+
+  &__habit-facts {
+    @apply truncate text-xs tabular-nums text-muted-foreground;
+  }
+
+  &__habit-pill {
+    @apply self-start;
+  }
+
+  &__habit-grid {
+    @apply shrink-0;
+  }
 
   &__state {
     @apply py-6 text-sm text-muted-foreground;

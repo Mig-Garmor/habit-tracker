@@ -67,12 +67,6 @@ schedule strict? Those two answers change most of the logic above.
   crowded, takes more space than its content needs, and changes size as values change. Show the
   values as text; reveal the inputs and a Save button only when Edit is clicked. Habit names
   truncate to 12 characters.
-- **Dashboard: six habits at a glance.** The `/` route should fit at least six habits without
-  scrolling, so consistency can be read in one look rather than assembled by scrolling. Today
-  each habit is a full-width card with a 15-week grid, so two fill the screen. Likely needs a
-  denser layout — smaller grids, a shorter default window, or a compact mode — which is a design
-  question rather than a CSS tweak, since the grid is the thing being read.
-
 ---
 
 ## Smaller, already identified
