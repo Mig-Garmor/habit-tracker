@@ -1,10 +1,31 @@
 {
   "files": [],
-  "references": [
-    { "path": "./tsconfig.app.json" },
-    { "path": "./tsconfig.node.json" }
-  ],
-  "compilerOptions": {    "paths": {
+  "references": [{ "path": "./tsconfig.app.json" }, { "path": "./tsconfig.node.json" }],
+
+  /*
+   * `vue-tsc -b` builds the two referenced projects and ignores what is here,
+   * because `files` is empty. Vercel is the reason this block exists: it does
+   * NOT support project references, so when it typechecks `api/index.ts` and
+   * everything reachable from it, tsconfig.node.json is invisible and only
+   * this file is read.
+   *
+   * Without these options Vercel falls back to defaults, and because
+   * package.json declares `"type": "module"` that means node16 resolution —
+   * which rejects every extensionless relative import in server/ with TS2835
+   * and fails the deployment. Keep these in step with tsconfig.node.json.
+   */
+  "compilerOptions": {
+    "target": "es2023",
+    "lib": ["ES2023"],
+    "types": ["node"],
+    "skipLibCheck": true,
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "verbatimModuleSyntax": true,
+    "moduleDetection": "force",
+    "noEmit": true,
+    "strict": true,
+    "paths": {
       "@/*": ["./src/*"]
     }
   }

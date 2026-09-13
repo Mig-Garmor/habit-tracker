@@ -1,16 +1,21 @@
 import { beforeAll, describe, expect, it, vi } from 'vitest'
 
+// This lives in server/ rather than next to the file it tests, because Vercel
+// builds EVERY file under api/ as a serverless function. A spec there is
+// compiled as a function, fails on vitest and node types it has no reason to
+// have, and breaks the deployment. api/ holds functions and nothing else.
+
 // The entrypoint builds a real app at import time, which reaches the database
 // client. The shape of the export is what matters here, not any query, so the
 // client is replaced rather than a test database being stood up.
-vi.mock('../server/db/client', () => ({ db: {} }))
+vi.mock('./db/client', () => ({ db: {} }))
 
 let entrypoint: { fetch: (request: Request) => Response | Promise<Response> }
 
 beforeAll(async () => {
   process.env.SESSION_SECRET = 'test-session-secret-at-least-32-bytes-long'
   process.env.ALLOWED_EMAILS = 'tester@example.com'
-  entrypoint = (await import('./index')).default
+  entrypoint = (await import('../api/index')).default
 })
 
 /**

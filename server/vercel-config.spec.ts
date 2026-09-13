@@ -2,6 +2,9 @@ import { readFileSync } from 'node:fs'
 import { pathToRegexp } from 'path-to-regexp'
 import { describe, expect, it } from 'vitest'
 
+// In server/, not api/: Vercel compiles every file under api/ as a serverless
+// function, so a spec there breaks the deployment.
+
 /**
  * `vercel.json` rewrite sources are NOT regular expressions. Vercel parses them
  * with path-to-regexp v6.1.0, which is stricter: a capturing group inside a
