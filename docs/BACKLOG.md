@@ -44,6 +44,22 @@ schedule strict? Those two answers change most of the logic above.
 
 ---
 
+## Operational — not code
+
+- **Split the Neon branches.** Local `.env` and the Vercel project point at the *same* Neon
+  branch, so the database holding the real habit history is also the one local development
+  reads and writes. Two consequences: there is nowhere to try a schema change before it reaches
+  the live app, and `pnpm db:reset` run locally would drop the real data — that script exists
+  and works. Since deploys now migrate automatically (D-19), this matters more than it did.
+  Branch `dev` off the current branch in Neon (copy-on-write, near-instant), point `.env` at
+  `dev`, leave Vercel on the original.
+- **Rotate the Neon password.** It was printed into a session transcript on 2026-09-13 by a
+  masking bug — a `sed` that replaced from the first `=`, which fell inside `sslmode=` rather
+  than the password. The transcript is on disk. The database is now reachable from a public
+  URL, so this is worth doing regardless of how unlikely exposure is.
+
+---
+
 ## Smaller, already identified
 
 - **Export/backup script.** A hosted database has durability, but free tiers keep limited
