@@ -12,6 +12,7 @@ A single-user habit tracker, backed by Neon Postgres.
 | Styling | Tailwind v3, written inside SCSS files |
 | API | Hono on Node |
 | Database | Neon Postgres via Drizzle ORM (`neon-serverless`) |
+| Auth | Google Identity Services + a signed session cookie, one allowed email |
 | Tests | Vitest |
 
 ## Getting started
@@ -31,6 +32,21 @@ pnpm dev
 Vite proxies `/api/*` to the API, so the browser only ever talks to 5173.
 
 Open http://localhost:5173.
+
+## Signing in
+
+The app is behind a Google sign-in restricted to the addresses in `ALLOWED_EMAILS`.
+An empty list admits nobody.
+
+`GOOGLE_CLIENT_ID` and `VITE_GOOGLE_CLIENT_ID` hold the same value — Vite only exposes
+`VITE_`-prefixed variables to the browser, so the login page cannot read the first one.
+`SESSION_SECRET` signs the session cookie; generate one with `openssl rand -base64 32`.
+
+The OAuth client needs every origin the app runs on listed as an authorised JavaScript
+origin, including `http://localhost:5173` for local development.
+
+Every `/api` route rejects an unauthenticated request; only `/api/health` and `/api/auth/*`
+are open. The router guard in the browser is convenience only and protects nothing.
 
 ## Commands
 
