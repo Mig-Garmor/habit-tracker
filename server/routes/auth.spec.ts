@@ -9,6 +9,7 @@ vi.mock('../db/client', () => ({
     return holder.db
   },
   isDatabaseConfigured: () => true,
+  databaseStatus: vi.fn(() => Promise.resolve('reachable')),
 }))
 
 // Wraps the real implementation by default, so every existing test still
@@ -65,6 +66,16 @@ describe('the guard', () => {
       headers: { cookie: await signedCookieHeader('me@example.com') },
     })
     expect(response.status).toBe(200)
+  })
+
+  it('returns 503 when the database cannot be reached', async () => {
+    // The point of the check: an unreachable database must be a failing
+    // status, not a 200 that says everything is fine.
+    const { databaseStatus } = await import('../db/client.js')
+    vi.mocked(databaseStatus).mockResolvedValueOnce('unreachable')
+    const response = await app.request('/api/health')
+    expect(response.status).toBe(503)
+    expect(await response.json()).toEqual({ ok: false, database: 'unreachable' })
   })
 
   it('leaves /api/health open', async () => {

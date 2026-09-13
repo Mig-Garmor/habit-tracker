@@ -12,6 +12,7 @@ vi.mock('../db/client', () => ({
     return holder.db
   },
   isDatabaseConfigured: () => true,
+  databaseStatus: () => Promise.resolve('reachable'),
 }))
 
 let app: { request: (path: string, init?: RequestInit) => Response | Promise<Response> }

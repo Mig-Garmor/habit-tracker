@@ -83,3 +83,32 @@ describe('the database client', () => {
     })
   })
 })
+
+/**
+ * The check that matters on the day a password is rotated or an endpoint
+ * moves. The previous version reported "configured" whenever DATABASE_URL was
+ * merely SET, so it stayed green while the app could not reach its database at
+ * all — reassurance is worse than silence when it is wrong.
+ */
+describe('databaseStatus', () => {
+  it('says not configured when there is no connection string', async () => {
+    const { databaseStatus } = await freshClient()
+    await expect(databaseStatus()).resolves.toBe('not configured')
+  })
+
+  it('says unreachable when the string is set but the database refuses', async () => {
+    // A syntactically fine string pointing nowhere — which is exactly what a
+    // rotated password leaves behind.
+    process.env.DATABASE_URL = 'postgresql://user:wrong@127.0.0.1:1/nope'
+    const { databaseStatus } = await freshClient()
+    await expect(databaseStatus()).resolves.toBe('unreachable')
+  }, 20_000)
+
+  it('never leaks the connection string through a failure', async () => {
+    process.env.DATABASE_URL = 'postgresql://user:hunter2@127.0.0.1:1/nope'
+    const { databaseStatus } = await freshClient()
+    // The value is served to anyone, and a driver error can carry the whole
+    // string in its properties. It must be a bare word and nothing else.
+    await expect(databaseStatus()).resolves.toBe('unreachable')
+  }, 20_000)
+})
