@@ -1,4 +1,4 @@
-import { beforeAll, describe, expect, it, vi } from 'vitest'
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 import type { Habit } from '../db/schema'
 import { createTestDb } from '../test/pg-harness'
 
@@ -13,14 +13,21 @@ vi.mock('../db/client', () => ({
 }))
 
 let app: { request: (path: string, init?: RequestInit) => Response | Promise<Response> }
+let closeTestDb: () => Promise<void>
 
 async function readJson<T>(response: Response | Promise<Response>): Promise<T> {
   return (await (await response).json()) as T
 }
 
 beforeAll(async () => {
-  holder.db = await createTestDb()
+  const { db, close } = await createTestDb()
+  holder.db = db
+  closeTestDb = close
   app = (await import('../app')).createApp()
+})
+
+afterAll(async () => {
+  await closeTestDb()
 })
 
 function post(path: string, body: unknown) {

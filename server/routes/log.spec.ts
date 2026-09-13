@@ -1,4 +1,4 @@
-import { beforeAll, describe, expect, it, vi } from 'vitest'
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 import type { DashboardResponse } from '../lib/dashboard'
 import { createTestDb } from '../test/pg-harness'
 
@@ -42,13 +42,16 @@ let app: { request: (path: string, init?: RequestInit) => Response | Promise<Res
 let todayKey: string
 let exerciseId: number
 let meditationId: number
+let closeTestDb: () => Promise<void>
 
 async function readJson<T>(response: Response | Promise<Response>): Promise<T> {
   return (await (await response).json()) as T
 }
 
 beforeAll(async () => {
-  holder.db = await createTestDb()
+  const { db, close } = await createTestDb()
+  holder.db = db
+  closeTestDb = close
 
   todayKey = (await import('../lib/date')).today()
   app = (await import('../app')).createApp()
@@ -64,6 +67,10 @@ beforeAll(async () => {
 
   exerciseId = await create({ name: 'Exercise', notesEnabled: true })
   meditationId = await create({ name: 'Meditation', kind: 'quantity', unit: 'minutes', target: 10 })
+})
+
+afterAll(async () => {
+  await closeTestDb()
 })
 
 function put(date: string, entries: unknown[]) {
