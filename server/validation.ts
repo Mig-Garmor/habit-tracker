@@ -11,7 +11,7 @@ const unit = z.string().trim().min(1).max(20).nullable()
 const target = z.number().positive('Target must be greater than zero').nullable()
 const timesPerWeek = z
   .number()
-  .int('Cadence must be a whole number of days')
+  .int('Cadence must be a whole number of times per week')
   .min(1, 'A habit must happen at least once a week')
   .max(7, 'A habit cannot happen more than once a day')
 
