@@ -24,6 +24,12 @@
   &__row {
     @apply flex flex-wrap items-center gap-x-3 gap-y-2 rounded-lg border p-3;
 
+    /* While editing, the grip stays top-aligned beside a two-line column
+       rather than floating in its vertical middle. */
+    &--editing {
+      @apply items-start;
+    }
+
     &--compact {
       @apply border-0 p-0;
     }
@@ -64,6 +70,23 @@
 
   &__name-input {
     @apply w-32 text-sm;
+  }
+
+  &__edit {
+    /* A column while editing: the fields on one line, Save and Cancel on their
+       own beneath. Inline, the buttons pushed the fields around and landed in
+       a different place on every row depending on how many fields the habit
+       had. */
+    @apply flex flex-1 flex-col gap-2;
+  }
+
+  &__edit-fields {
+    @apply flex flex-wrap items-center gap-2;
+  }
+
+  &__edit-actions {
+    /* Right-aligned, so Save sits where the row ends rather than mid-row. */
+    @apply flex justify-end gap-2;
   }
 
   &__menu-trigger {

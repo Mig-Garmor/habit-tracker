@@ -187,6 +187,31 @@ describe('editing a habit', () => {
     expect(updateHabit).toHaveBeenCalledWith(9, { name: 'Upload a video', timesPerWeek: 2 })
   })
 
+  it('puts Save and Cancel below the fields, not beside them', async () => {
+    const wrapper = await mountPage()
+    await openEditor(wrapper, 1)
+
+    const edit = wrapper.find('.habits__edit')
+    expect(edit.exists()).toBe(true)
+
+    // Structure, not styling: the actions are a sibling AFTER the fields, so
+    // they form their own row. Inline, they shifted with the number of fields
+    // a habit had and landed somewhere different on each row.
+    const children = [...edit.element.children].map(el => el.className)
+    expect(children[0]).toContain('habits__edit-fields')
+    expect(children[1]).toContain('habits__edit-actions')
+
+    const actions = wrapper.find('.habits__edit-actions')
+    expect(actions.find('[data-save="1"]').exists()).toBe(true)
+    expect(actions.text()).toContain('Cancel')
+  })
+
+  it('marks the row as editing, so the grip can align to the top', async () => {
+    const wrapper = await mountPage()
+    await openEditor(wrapper, 1)
+    expect(wrapper.find('.habits__row--editing').exists()).toBe(true)
+  })
+
   it('only opens one row at a time', async () => {
     const wrapper = await mountPage()
     await openEditor(wrapper, 1)
