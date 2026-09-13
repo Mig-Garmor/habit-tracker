@@ -137,6 +137,45 @@ describe('POST /api/auth/session', () => {
     const response = await post({ credential: 'irrelevant' })
     expect(response.status).toBe(403)
   })
+
+  // Every other test in this file drives the plain-cookie path. A regression
+  // in sessionCookieName/sessionCookieOptions for the secure branch would
+  // ship silently without a test that goes through a real sign-in with
+  // x-forwarded-proto set, the way Vercel's edge presents the request.
+  it('issues a __Host- cookie with Secure, HttpOnly and SameSite when forwarded as https', async () => {
+    const { verifyGoogleIdToken } = await import('../auth/google')
+    vi.mocked(verifyGoogleIdToken).mockResolvedValueOnce('me@example.com')
+
+    const response = await app.request('/api/auth/session', {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        'x-forwarded-proto': 'https',
+      },
+      body: JSON.stringify({ credential: 'irrelevant' }),
+    })
+    expect(response.status).toBe(200)
+
+    const setCookies = response.headers.getSetCookie()
+    const sessionCookie = setCookies.find(cookie => cookie.startsWith('__Host-habit_session='))
+    expect(sessionCookie).toBeDefined()
+    expect(sessionCookie).toMatch(/;\s*Secure/i)
+    expect(sessionCookie).toMatch(/;\s*HttpOnly/i)
+    expect(sessionCookie).toMatch(/;\s*SameSite=Lax/i)
+  })
+
+  it('issues the plain, non-Secure cookie when there is no forwarded protocol', async () => {
+    const { verifyGoogleIdToken } = await import('../auth/google')
+    vi.mocked(verifyGoogleIdToken).mockResolvedValueOnce('me@example.com')
+
+    const response = await post({ credential: 'irrelevant' })
+    expect(response.status).toBe(200)
+
+    const setCookies = response.headers.getSetCookie()
+    const sessionCookie = setCookies.find(cookie => cookie.startsWith('habit_session='))
+    expect(sessionCookie).toBeDefined()
+    expect(sessionCookie).not.toMatch(/;\s*Secure/i)
+  })
 })
 
 describe('GET /api/auth/me', () => {
