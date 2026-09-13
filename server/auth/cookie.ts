@@ -1,26 +1,47 @@
+import type { Context } from 'hono'
+import { getCookie } from 'hono/cookie'
 import type { CookieOptions } from 'hono/utils/cookie'
+import { isSecureRequest } from './request'
 import { SESSION_MAX_AGE_SECONDS } from './session'
 
-export const SESSION_COOKIE = 'habit_session'
+/**
+ * The `__Host-` prefix requires Secure, Path=/ and no Domain, and in exchange
+ * stops a sibling deployment on the same apex (*.vercel.app) from planting a
+ * cookie of this name. Browsers REJECT a `__Host-` cookie without Secure, so
+ * local http development has to use the plain name or sign-in silently fails.
+ */
+export const SESSION_COOKIE_SECURE = '__Host-habit_session'
+export const SESSION_COOKIE_PLAIN = 'habit_session'
+
+export function sessionCookieName(secure: boolean): string {
+  return secure ? SESSION_COOKIE_SECURE : SESSION_COOKIE_PLAIN
+}
+
+/** Whether this request reached the user over HTTPS (D-15). */
+export function requestIsSecure(c: Context): boolean {
+  return isSecureRequest(c.req.header('x-forwarded-proto'), c.req.url)
+}
 
 /**
- * `secure` is derived from the request rather than hardcoded: Safari refuses a
- * Secure cookie over plain http, which would make local development silently
- * fail to keep anyone signed in.
- *
- * SameSite=Lax plus a same-origin API is our CSRF defence — every mutating
+ * SameSite=Lax plus a same-origin API is the CSRF defence: every mutating
  * route requires `content-type: application/json`, which a browser will not
- * send cross-origin without a preflight the server never grants. The data
- * routes get this from `zValidator('json', …)`; the two auth routes
- * (`POST /session`, `POST /logout`) enforce it explicitly since neither uses
- * that validator — see server/routes/auth.ts.
+ * send cross-origin without a preflight the server never grants.
  */
-export function sessionCookieOptions(requestUrl: string): CookieOptions {
+export function sessionCookieOptions(secure: boolean): CookieOptions {
   return {
     httpOnly: true,
-    secure: new URL(requestUrl).protocol === 'https:',
+    secure,
     sameSite: 'Lax',
     path: '/',
     maxAge: SESSION_MAX_AGE_SECONDS,
   }
+}
+
+/**
+ * Reads whichever name this deployment uses. Checking both means a session
+ * issued before a protocol change is still honoured rather than silently
+ * logging the user out.
+ */
+export function readSessionCookie(c: Context): string | undefined {
+  return getCookie(c, SESSION_COOKIE_SECURE) ?? getCookie(c, SESSION_COOKIE_PLAIN)
 }

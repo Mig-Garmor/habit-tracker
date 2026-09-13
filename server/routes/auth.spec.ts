@@ -69,6 +69,15 @@ describe('the guard', () => {
   it('leaves /api/health open', async () => {
     expect((await app.request('/api/health')).status).toBe(200)
   })
+
+  it('accepts a session under the __Host- name', async () => {
+    const { createSessionToken } = await import('../auth/session')
+    const token = await createSessionToken('me@example.com', TEST_SESSION_SECRET)
+    const response = await app.request('/api/habits', {
+      headers: { cookie: `__Host-habit_session=${token}` },
+    })
+    expect(response.status).toBe(200)
+  })
 })
 
 describe('POST /api/auth/session', () => {
@@ -134,8 +143,9 @@ describe('POST /api/auth/logout', () => {
       headers: { 'content-type': 'application/json' },
     })
     expect(response.status).toBe(200)
-    expect(response.headers.get('set-cookie')).toContain('habit_session=')
-    expect(response.headers.get('set-cookie')).toMatch(/Max-Age=0|Expires=/i)
+    const setCookie = response.headers.get('set-cookie') ?? ''
+    expect(setCookie).toContain('habit_session=')
+    expect(setCookie).toMatch(/Max-Age=0|Expires=/i)
   })
 
   it('rejects a non-JSON content type', async () => {
