@@ -41,9 +41,30 @@ vi.mock('@/lib/api', () => ({
   reorderHabits: (ids: number[]) => reorderHabits(ids),
 }))
 
+/**
+ * happy-dom gives every element a zeroed rect, so the drag arithmetic has
+ * nothing to work with unless rows are given real geometry. 40px rows stacked
+ * from y=0.
+ */
+function giveRowsGeometry(root: Element) {
+  root.querySelectorAll('li').forEach((row, index) => {
+    row.getBoundingClientRect = () =>
+      ({ top: index * 40, height: 40, bottom: index * 40 + 40, left: 0, right: 0, width: 100, x: 0, y: index * 40, toJSON: () => ({}) }) as DOMRect
+  })
+}
+
+function pointer(type: string, clientY: number, pointerId = 1) {
+  const event = new Event(type, { bubbles: true, cancelable: true })
+  Object.assign(event, { pointerId, clientY, clientX: 0, button: 0 })
+  return event
+}
+
 async function mountPage() {
   const HabitsPage = (await import('./habits.vue')).default
   const wrapper = mount(HabitsPage, {
+    // Attached, not detached: the drag looks its list up with
+    // document.querySelector, which finds nothing in a detached tree.
+    attachTo: document.body,
     global: { stubs: { AlertDialog: true, AlertDialogContent: true } },
   })
   await flushPromises()
@@ -103,5 +124,94 @@ describe('reordering a habit', () => {
     const names = wrapper.findAll('.habits__name').map(node => node.text())
     expect(names.slice(0, 3)).toEqual(['Exercise', 'Meditation', 'Read'])
     expect(wrapper.text()).toContain('Network down')
+  })
+})
+
+/**
+ * The drag path, which is what actually broke in use: on mobile the row stayed
+ * stuck to the finger after release and no request was sent. The cause was
+ * `setPointerCapture` on the grip — as the list reorders, Vue moves that row's
+ * node, the capture is lost, and `pointerup` never arrives. Listeners now live
+ * on `window`, so these tests dispatch there.
+ */
+describe('dragging a habit', () => {
+  beforeEach(() => {
+    reorderHabits.mockClear()
+    document.body.innerHTML = ''
+  })
+
+  it('saves the new order when the finger lifts', async () => {
+    const wrapper = await mountPage()
+    giveRowsGeometry(wrapper.element as Element)
+
+    await wrapper.find('[data-grip="1"]').element.dispatchEvent(pointer('pointerdown', 10))
+    window.dispatchEvent(pointer('pointermove', 95)) // past the third row's midpoint
+    await flushPromises()
+    window.dispatchEvent(pointer('pointerup', 95))
+    await flushPromises()
+
+    expect(reorderHabits).toHaveBeenCalledTimes(1)
+    expect(reorderHabits).toHaveBeenCalledWith([2, 3, 1])
+  })
+
+  it('releases the row when the finger lifts, so it is not left stuck', async () => {
+    const wrapper = await mountPage()
+    giveRowsGeometry(wrapper.element as Element)
+
+    wrapper.find('[data-grip="1"]').element.dispatchEvent(pointer('pointerdown', 10))
+    window.dispatchEvent(pointer('pointermove', 95))
+    await flushPromises()
+    expect(wrapper.find('.habits__row--dragging').exists()).toBe(true)
+
+    window.dispatchEvent(pointer('pointerup', 95))
+    await flushPromises()
+    expect(wrapper.find('.habits__row--dragging').exists()).toBe(false)
+  })
+
+  it('still saves when the browser cancels the gesture', async () => {
+    const wrapper = await mountPage()
+    giveRowsGeometry(wrapper.element as Element)
+
+    wrapper.find('[data-grip="1"]').element.dispatchEvent(pointer('pointerdown', 10))
+    window.dispatchEvent(pointer('pointermove', 95))
+    await flushPromises()
+    // iOS reclaims gestures it decides are scrolls; the move must not be lost.
+    window.dispatchEvent(pointer('pointercancel', 95))
+    await flushPromises()
+
+    expect(reorderHabits).toHaveBeenCalledWith([2, 3, 1])
+    expect(wrapper.find('.habits__row--dragging').exists()).toBe(false)
+  })
+
+  it('ignores a second finger during a drag', async () => {
+    const wrapper = await mountPage()
+    giveRowsGeometry(wrapper.element as Element)
+
+    wrapper.find('[data-grip="1"]').element.dispatchEvent(pointer('pointerdown', 10, 1))
+    wrapper.find('[data-grip="2"]').element.dispatchEvent(pointer('pointerdown', 50, 2))
+    window.dispatchEvent(pointer('pointermove', 95, 2)) // the wrong pointer
+    await flushPromises()
+    window.dispatchEvent(pointer('pointerup', 95, 1))
+    await flushPromises()
+
+    // The second finger moved nothing, so the first drag ended where it began.
+    expect(reorderHabits).not.toHaveBeenCalled()
+    expect(wrapper.find('.habits__row--dragging').exists()).toBe(false)
+  })
+
+  it('stops listening once the drag ends', async () => {
+    const wrapper = await mountPage()
+    giveRowsGeometry(wrapper.element as Element)
+
+    wrapper.find('[data-grip="1"]').element.dispatchEvent(pointer('pointerdown', 10))
+    window.dispatchEvent(pointer('pointerup', 10))
+    await flushPromises()
+    reorderHabits.mockClear()
+
+    // A stray move after release must not drag anything.
+    window.dispatchEvent(pointer('pointermove', 95))
+    window.dispatchEvent(pointer('pointerup', 95))
+    await flushPromises()
+    expect(reorderHabits).not.toHaveBeenCalled()
   })
 })
