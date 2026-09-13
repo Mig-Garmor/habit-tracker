@@ -1,6 +1,6 @@
 # Hosted habit tracker — Neon Postgres, Google sign-in, Vercel
 
-> Status: approved, not yet implemented
+> Status: Phases 1-2 implemented. Phase 3 code complete (branch `feat/vercel-deploy`); the deployment itself is outstanding — see DEPLOY.md.
 > Date: 2026-09-13
 
 Moves the tracker off the laptop: habit data into Neon Postgres, the app onto Vercel, and
