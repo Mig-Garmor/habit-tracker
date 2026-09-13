@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
+import EditableName from '@/components/EditableName.vue'
 import HealthPill from '@/components/HealthPill.vue'
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
@@ -65,6 +66,21 @@ async function setStatus(habit: Habit, status: Habit['status']) {
     await load()
   } catch (e) {
     error.value = e instanceof Error ? e.message : 'Could not update that habit.'
+  } finally {
+    busyId.value = null
+  }
+}
+
+/** Rename an active or upcoming habit. Archived names stay fixed so the
+ * label on already-logged history cannot be rewritten. */
+async function renameHabit(habit: Habit, name: string) {
+  busyId.value = habit.id
+  error.value = null
+  try {
+    await updateHabit(habit.id, { name })
+    await load()
+  } catch (e) {
+    error.value = e instanceof Error ? e.message : 'Could not rename that habit.'
   } finally {
     busyId.value = null
   }
@@ -148,7 +164,12 @@ onMounted(load)
 
         <ul class="habits__list">
           <li v-for="habit in active" :key="habit.id" class="habits__row">
-            <span class="habits__name">{{ habit.name }}</span>
+            <EditableName
+              class="habits__name"
+              :name="habit.name"
+              :busy="busyId === habit.id"
+              @rename="renameHabit(habit, $event)"
+            />
             <div v-if="habit.kind === 'quantity'" class="habits__target">
               <Input
                 type="number"
@@ -187,7 +208,12 @@ onMounted(load)
         </p>
         <ul class="habits__list">
           <li v-for="habit in upcoming" :key="habit.id" class="habits__row">
-            <span class="habits__name">{{ habit.name }}</span>
+            <EditableName
+              class="habits__name"
+              :name="habit.name"
+              :busy="busyId === habit.id"
+              @rename="renameHabit(habit, $event)"
+            />
             <Button variant="outline" size="sm" :disabled="busyId === habit.id" @click="requestActivation(habit)">
               Activate
             </Button>
