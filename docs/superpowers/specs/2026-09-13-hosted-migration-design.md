@@ -1,6 +1,6 @@
 # Hosted habit tracker — Neon Postgres, Google sign-in, Vercel
 
-> Status: Phases 1-2 implemented. Phase 3 code complete (branch `feat/vercel-deploy`); the deployment itself is outstanding — see DEPLOY.md.
+> Status: Phases 1-3 implemented. The app is deployed and sign-in works in production.
 > Date: 2026-09-13
 
 Moves the tracker off the laptop: habit data into Neon Postgres, the app onto Vercel, and
@@ -265,6 +265,26 @@ exception. Splitting the driver (HTTP for reads, pool for the one transactional
 route) would avoid the handshake at the price of two clients and two code paths;
 that is not worth it for a single-user app, and the decision should be revisited
 only if cold starts become a real complaint.
+
+**D-17 — relative imports carry a `.js` extension, and the compiler enforces
+it.** `package.json` declares `"type": "module"`, so the JavaScript Vercel
+emits is ESM, and Node ESM will not resolve an extensionless relative import.
+Vercel compiles without bundling, so an extensionless specifier reaches the
+runtime verbatim and throws `ERR_MODULE_NOT_FOUND` — which surfaces only as
+`FUNCTION_INVOCATION_FAILED` on every route, including ones that touch no
+configuration. Nothing reproduces this locally: Vite, vitest, tsx and esbuild
+all resolve extensionless specifiers. `moduleResolution` is therefore
+`nodenext` in both tsconfigs, so TypeScript rejects the omission at
+`pnpm typecheck`, which CI runs. Do not set it to `bundler` to quiet TS2835:
+that diagnostic is correct, and silencing it produces a green build whose every
+route fails at runtime.
+
+**D-18 — configuration failures must not be raised at module scope.** The
+database pool is built on first use. A value read at import time turns one
+missing variable into a total outage with no diagnostic, because the entrypoint
+builds the app at import and the module never loads. `/api/health` reports
+whether the database is configured, never its value, so one unauthenticated
+request separates "down" from "up but misconfigured".
 
 ## Phase 3 is done when
 
