@@ -222,6 +222,51 @@ describe('editing a habit', () => {
   })
 })
 
+/**
+ * As the window narrowed, the row's flex-wrap pushed the ⋯ menu onto its own
+ * line below the content — the one control that must always be reachable was
+ * the first thing to move. The text now stacks inside habits__info while the
+ * menu stays a sibling, so it cannot be displaced.
+ */
+describe('a habit row at narrow widths', () => {
+  it('keeps the menu outside the text block, so stacking cannot displace it', async () => {
+    const wrapper = await mountPage()
+    const row = wrapper.find('.habits__row')
+    const info = row.find('.habits__info')
+
+    expect(info.exists()).toBe(true)
+    // The trigger must NOT live inside the block that stacks.
+    expect(info.find('[data-menu="1"]').exists()).toBe(false)
+    expect(row.find('[data-menu="1"]').exists()).toBe(true)
+  })
+
+  it('puts the name and facts inside the block that stacks', async () => {
+    const wrapper = await mountPage()
+    const info = wrapper.find('.habits__row').find('.habits__info')
+    expect(info.find('.habits__name').exists()).toBe(true)
+    expect(info.find('.habits__summary').exists()).toBe(true)
+  })
+
+  it('orders the row as text then menu, so the menu sits at the end', async () => {
+    const wrapper = await mountPage()
+    const children = [...wrapper.find('.habits__row').element.children]
+      .map(el => el.className)
+      .filter(c => typeof c === 'string')
+    const infoAt = children.findIndex(c => c.includes('habits__info'))
+    expect(infoAt).toBeGreaterThanOrEqual(0)
+    // Everything after the text block is the menu; nothing follows it.
+    expect(children.slice(infoAt + 1).join(' ')).not.toContain('habits__info')
+  })
+
+  it('gives an upcoming row the same structure', async () => {
+    const wrapper = await mountPage()
+    const rows = wrapper.findAll('.habits__row')
+    const upcoming = rows.find(r => r.find('[data-menu="9"]').exists())!
+    expect(upcoming.find('.habits__info').exists()).toBe(true)
+    expect(upcoming.find('.habits__info').find('[data-menu="9"]').exists()).toBe(false)
+  })
+})
+
 describe('reaching the notes page', () => {
   it('offers Notes only for a habit that carries them', async () => {
     const wrapper = await mountPage()

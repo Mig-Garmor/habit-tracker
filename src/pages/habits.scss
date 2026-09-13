@@ -22,7 +22,11 @@
   }
 
   &__row {
-    @apply flex flex-wrap items-center gap-x-3 gap-y-2 rounded-lg border p-3;
+    /* items-start, and NO flex-wrap. Wrapping is what pushed the ⋯ menu onto
+       its own line as the window narrowed — the one control that must always
+       be reachable was the first thing to move. Without wrap it cannot leave
+       the top right, and the text inside habits__info stacks instead. */
+    @apply flex items-start gap-3 rounded-lg border p-3;
 
     /* While editing, the grip stays top-aligned beside a two-line column
        rather than floating in its vertical middle. */
@@ -52,10 +56,31 @@
     }
   }
 
+  &__info {
+    /* Stacked below sm, a row above it. A breakpoint rather than flex-wrap so
+       every row breaks at the same width: wrapping would reflow each one
+       differently depending on how long its name and unit happen to be, which
+       is the raggedness this is meant to prevent.
+
+       min-w-0 so the truncation below engages — a flex child defaults to
+       min-width:auto and refuses to shrink below its content. */
+    /* items-start: a column flex stretches its children, which made the health
+       pill span the whole row and read as a banner rather than a badge. */
+    @apply flex min-w-0 flex-1 flex-col items-start gap-1;
+
+    @screen sm {
+      @apply flex-row items-center gap-3;
+    }
+  }
+
   &__name {
-    /* Fixed width, not flex-1: the point of truncating is that every row lines
-       up, which a growing name defeats. */
-    @apply w-28 shrink-0 truncate text-sm font-medium;
+    /* Full width while stacked; fixed above the breakpoint, where the point of
+       truncating is that every row lines up and a growing name defeats it. */
+    @apply w-full truncate text-sm font-medium;
+
+    @screen sm {
+      @apply w-28 shrink-0;
+    }
 
     &--muted {
       @apply text-muted-foreground;
@@ -90,6 +115,7 @@
   }
 
   &__menu-trigger {
+    /* shrink-0 keeps it at full size however little room is left. */
     @apply shrink-0 px-2 text-base leading-none;
   }
 
