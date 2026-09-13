@@ -34,11 +34,6 @@ describe('vercel.json rewrites', () => {
     }
   })
 
-  // TEMPORARY, paired with api/ping.ts — remove both together.
-  it('routes the ping probe to its own function, not the main one', () => {
-    expect(resolve('/api/ping')).toBe('/api/ping')
-  })
-
   it('sends API paths to the function', () => {
     expect(resolve('/api/habits')).toBe('/api/index')
     expect(resolve('/api/auth/session')).toBe('/api/index')
@@ -59,7 +54,7 @@ describe('vercel.json rewrites', () => {
   })
 
   it('does not send anything under /api to the SPA', () => {
-    for (const path of ['/api', '/api/', '/api/habits', '/api/auth/logout', '/api/ping']) {
+    for (const path of ['/api', '/api/', '/api/habits', '/api/auth/logout']) {
       expect(resolve(path), `${path} must not fall through to the SPA`).not.toBe('/index.html')
     }
   })
