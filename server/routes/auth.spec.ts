@@ -61,7 +61,7 @@ describe('the guard', () => {
 
   it('allows a validly signed cookie', async () => {
     const response = await app.request('/api/habits', {
-      headers: { cookie: await signedCookieHeader() },
+      headers: { cookie: await signedCookieHeader('me@example.com') },
     })
     expect(response.status).toBe(200)
   })
@@ -77,6 +77,23 @@ describe('the guard', () => {
       headers: { cookie: `__Host-habit_session=${token}` },
     })
     expect(response.status).toBe(200)
+  })
+
+  // The allowlist is re-checked on every request, not only at sign-in: a
+  // validly-signed token for an email no longer in ALLOWED_EMAILS must be
+  // rejected immediately, rather than staying valid until it expires.
+  it('allows a session whose email is still on the allowlist', async () => {
+    const response = await app.request('/api/habits', {
+      headers: { cookie: await signedCookieHeader('me@example.com') },
+    })
+    expect(response.status).toBe(200)
+  })
+
+  it('rejects a validly signed session whose email is no longer on the allowlist', async () => {
+    const response = await app.request('/api/habits', {
+      headers: { cookie: await signedCookieHeader('removed@example.com') },
+    })
+    expect(response.status).toBe(401)
   })
 })
 

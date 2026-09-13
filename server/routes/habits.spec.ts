@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 import type { Habit } from '../db/schema'
 import { createTestDb } from '../test/pg-harness'
-import { signedCookieHeader, TEST_SESSION_SECRET } from '../test/session-cookie'
+import { signedCookieHeader, TEST_EMAIL, TEST_SESSION_SECRET } from '../test/session-cookie'
 
 const holder = vi.hoisted(() => ({ db: undefined as unknown }))
 
@@ -23,6 +23,7 @@ async function readJson<T>(response: Response | Promise<Response>): Promise<T> {
 
 beforeAll(async () => {
   process.env.SESSION_SECRET = TEST_SESSION_SECRET
+  process.env.ALLOWED_EMAILS = TEST_EMAIL
   cookie = await signedCookieHeader()
 
   const { db, close } = await createTestDb()
