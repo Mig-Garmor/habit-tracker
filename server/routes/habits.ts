@@ -1,10 +1,10 @@
 import { zValidator } from '@hono/zod-validator'
-import { asc, eq } from 'drizzle-orm'
+import { asc, eq, inArray } from 'drizzle-orm'
 import { Hono } from 'hono'
 import { db } from '../db/client.js'
 import { habits, habitStatuses } from '../db/schema.js'
 import { today } from '../lib/date.js'
-import { createHabitSchema, quantityIsComplete, updateHabitSchema } from '../validation.js'
+import { createHabitSchema, quantityIsComplete, reorderHabitsSchema, updateHabitSchema } from '../validation.js'
 
 export const habitsRoutes = new Hono()
 
@@ -16,7 +16,7 @@ habitsRoutes.get('/', async c => {
 
   const query = db.select().from(habits).$dynamic()
   const rows = await (status ? query.where(eq(habits.status, status as (typeof habitStatuses)[number])) : query)
-    .orderBy(asc(habits.id))
+    .orderBy(asc(habits.position), asc(habits.id))
 
   return c.json({ habits: rows })
 })
@@ -34,6 +34,44 @@ habitsRoutes.post('/', zValidator('json', createHabitSchema), async c => {
     .returning()
 
   return c.json({ habit: created }, 201)
+})
+
+/**
+ * Registered before `/:id` routes so "reorder" is never read as an id.
+ *
+ * Takes the complete order for one status group. Everything is validated
+ * before anything is written, so a rejected request leaves the stored order
+ * exactly as it was.
+ */
+habitsRoutes.put('/reorder', zValidator('json', reorderHabitsSchema), async c => {
+  const { ids } = c.req.valid('json')
+
+  return db.transaction(async tx => {
+    const rows = await tx.select().from(habits).where(inArray(habits.id, ids))
+
+    if (rows.length !== ids.length) {
+      return c.json({ error: 'Those habits do not all exist' }, 400)
+    }
+
+    const statuses = new Set(rows.map(row => row.status))
+    if (statuses.size > 1) {
+      return c.json({ error: 'Habits can only be reordered within one status group' }, 400)
+    }
+
+    // Reordering a partial group would leave the habits left out holding stale
+    // positions, so the list silently rearranges again on the next load.
+    const [status] = [...statuses]
+    const group = await tx.select({ id: habits.id }).from(habits).where(eq(habits.status, status!))
+    if (group.length !== ids.length) {
+      return c.json({ error: 'Expected every habit in the group, in order' }, 400)
+    }
+
+    for (const [index, id] of ids.entries()) {
+      await tx.update(habits).set({ position: index }).where(eq(habits.id, id))
+    }
+
+    return c.json({ ok: true })
+  })
 })
 
 habitsRoutes.patch('/:id', zValidator('json', updateHabitSchema), async c => {

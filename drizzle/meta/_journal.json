@@ -8,6 +8,13 @@
       "when": 1789275669189,
       "tag": "0000_boring_christian_walker",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1789300104766,
+      "tag": "0001_mean_longshot",
+      "breakpoints": true
     }
   ]
 }

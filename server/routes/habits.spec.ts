@@ -159,3 +159,85 @@ describe('PATCH /api/habits/:id', () => {
     expect(updated.target).toBe(10)
   })
 })
+
+describe('PUT /api/habits/reorder', () => {
+  // Seeded here rather than relying on what earlier describes happened to
+  // leave behind: this suite shares one database, and depending on another
+  // test's side effects makes a failure here point at the wrong place.
+  let parked: Habit
+
+  beforeAll(async () => {
+    for (const name of ['Reorder A', 'Reorder B', 'Reorder C']) {
+      await post('/api/habits', { name })
+    }
+    const body = await readJson<{ habit: Habit }>(post('/api/habits', { name: 'Reorder parked', status: 'upcoming' }))
+    parked = body.habit
+  })
+
+  async function ids(): Promise<number[]> {
+    const body = await readJson<{ habits: Habit[] }>(app.request('/api/habits?status=active', { headers: { cookie } }))
+    return body.habits.map(h => h.id)
+  }
+
+  async function reorder(order: number[]) {
+    return app.request('/api/habits/reorder', {
+      method: 'PUT',
+      headers: { cookie, 'content-type': 'application/json' },
+      body: JSON.stringify({ ids: order }),
+    })
+  }
+
+  it('puts the habits in the order given', async () => {
+    const before = await ids()
+    expect(before.length).toBeGreaterThan(2)
+
+    const reversed = [...before].reverse()
+    expect((await reorder(reversed)).status).toBe(200)
+    expect(await ids()).toEqual(reversed)
+  })
+
+  it('is idempotent — sending the same order twice changes nothing', async () => {
+    const order = [...(await ids())].reverse()
+    await reorder(order)
+    await reorder(order)
+    expect(await ids()).toEqual(order)
+  })
+
+  it('rejects an order that omits a habit in the group', async () => {
+    const before = await ids()
+    const response = await reorder(before.slice(1))
+    expect(response.status).toBe(400)
+    // The stored order must be untouched by a rejected request.
+    expect(await ids()).toEqual(before)
+  })
+
+  it('rejects an order containing an unknown habit id', async () => {
+    const before = await ids()
+    const response = await reorder([...before, 999_999])
+    expect(response.status).toBe(400)
+    expect(await ids()).toEqual(before)
+  })
+
+  it('rejects an order that mixes habits from different status groups', async () => {
+    const activeIds = await ids()
+    const response = await reorder([...activeIds, parked.id])
+    expect(response.status).toBe(400)
+    expect(await ids()).toEqual(activeIds)
+  })
+
+  it('rejects a duplicated id', async () => {
+    const before = await ids()
+    const response = await reorder([before[0]!, ...before])
+    expect(response.status).toBe(400)
+    expect(await ids()).toEqual(before)
+  })
+
+  it('requires a session', async () => {
+    const response = await app.request('/api/habits/reorder', {
+      method: 'PUT',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ ids: [1] }),
+    })
+    expect(response.status).toBe(401)
+  })
+})

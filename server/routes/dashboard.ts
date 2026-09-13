@@ -26,7 +26,7 @@ dashboardRoutes.get('/', async c => {
     .select()
     .from(habits)
     .where(eq(habits.status, 'active'))
-    .orderBy(asc(habits.id))
+    .orderBy(asc(habits.position), asc(habits.id))
 
   // currentStreak has no depth cap, so a fetch window would truncate a long
   // streak (R10). buildDashboard's `days` still only spans
