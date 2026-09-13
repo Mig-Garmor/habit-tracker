@@ -32,7 +32,11 @@ async function habitsForDate(date: string): Promise<Habit[]> {
 
   const byId = new Map<number, Habit>()
   for (const habit of [...active, ...extras]) byId.set(habit.id, habit)
-  return [...byId.values()].sort((a, b) => a.id - b.id)
+  // By position, then id — the same order the habits list and the dashboard
+  // use. Sorting by id alone meant a habit dragged to a new place kept its old
+  // spot here, which is the one screen where the order matters most: it is the
+  // list worked through every day.
+  return [...byId.values()].sort((a, b) => a.position - b.position || a.id - b.id)
 }
 
 async function dayPayload(date: string) {
