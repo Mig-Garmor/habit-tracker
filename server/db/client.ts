@@ -19,4 +19,25 @@ export const DATABASE_URL = connectionString
  */
 export const pool = new Pool({ connectionString })
 
+// Mandatory: pg-pool's idle-client handler (bundled by @neondatabase/serverless)
+// emits 'error' on the pool when an idle connection drops — e.g. a laptop
+// sleeping or Neon restarting a backend. An EventEmitter with no 'error'
+// listener throws instead of emitting, which crashes the whole process.
+pool.on('error', (error: Error) => {
+  console.error('Postgres pool error', error)
+})
+
 export const db = drizzle(pool, { schema })
+
+/**
+ * The host alone, for logging. A malformed URL must never reach an error
+ * message: Node's ERR_INVALID_URL carries the whole string — password
+ * included — in its `input` property, and tsx prints error properties.
+ */
+export function databaseHost(): string {
+  try {
+    return new URL(DATABASE_URL).host
+  } catch {
+    return '(unparseable DATABASE_URL)'
+  }
+}
