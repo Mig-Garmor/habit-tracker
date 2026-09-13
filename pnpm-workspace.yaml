@@ -1,12 +1,19 @@
+# pnpm blocks dependency build scripts until each is explicitly decided, and
+# errors out on any it has no decision for. Every package here must therefore
+# carry a deliberate true/false — an omission fails the install.
 allowBuilds:
-  # Optional native watcher for sass's file watching; unrelated to the Neon
-  # migration and not needed here or in CI, so its native build stays off.
-  '@parcel/watcher': false
   esbuild: true
   vue-demi: true
 
-# Stops pnpm from auto-resolving drizzle-orm's *unused* optional peers (notably
-# better-sqlite3, a native module the migration to Neon Postgres exists to get
-# rid of). @neondatabase/serverless and @electric-sql/pglite are unaffected —
-# both are explicit dependencies in package.json, so they resolve regardless.
+  # Tailwind's optional file watcher, pulled in on Linux only (never installs
+  # on macOS), which is why this surfaced in CI and not locally. Denied rather
+  # than built: it exists to speed up `--watch`, CI never watches, and its
+  # platform-specific prebuild packages cover the case where it is needed.
+  '@parcel/watcher': false
+
+# Stops pnpm from auto-resolving drizzle-orm's *unused* optional peers — notably
+# better-sqlite3, the native module this migration exists to get rid of, which
+# pnpm reinstalled on every frozen-lockfile install until this was set.
+# @neondatabase/serverless and @electric-sql/pglite are unaffected: both are
+# explicit dependencies in package.json, so they resolve regardless.
 autoInstallPeers: false
