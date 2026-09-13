@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { activityLevel } from './level'
+import { activityLevel } from './level.js'
 
 const binary = { kind: 'binary' as const, target: null }
 const meditation = { kind: 'quantity' as const, target: 10 }

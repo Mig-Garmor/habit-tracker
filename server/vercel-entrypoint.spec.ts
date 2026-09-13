@@ -15,7 +15,7 @@ let entrypoint: { fetch: (request: Request) => Response | Promise<Response> }
 beforeAll(async () => {
   process.env.SESSION_SECRET = 'test-session-secret-at-least-32-bytes-long'
   process.env.ALLOWED_EMAILS = 'tester@example.com'
-  entrypoint = (await import('../api/index')).default
+  entrypoint = (await import('../api/index.js')).default
 })
 
 /**

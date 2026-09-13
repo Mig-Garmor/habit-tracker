@@ -1,10 +1,10 @@
 import { zValidator } from '@hono/zod-validator'
 import { and, eq, inArray, ne } from 'drizzle-orm'
 import { Hono } from 'hono'
-import { db } from '../db/client'
-import { habitEntries, habits, type Habit } from '../db/schema'
-import { isValidDateKey, today } from '../lib/date'
-import { logPayloadSchema } from '../validation'
+import { db } from '../db/client.js'
+import { habitEntries, habits, type Habit } from '../db/schema.js'
+import { isValidDateKey, today } from '../lib/date.js'
+import { logPayloadSchema } from '../validation.js'
 
 export const logRoutes = new Hono()
 

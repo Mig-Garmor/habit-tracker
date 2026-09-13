@@ -1,6 +1,6 @@
 import { createLocalJWKSet, exportJWK, generateKeyPair, SignJWT } from 'jose'
 import { beforeAll, describe, expect, it } from 'vitest'
-import { verifyGoogleIdToken } from './google'
+import { verifyGoogleIdToken } from './google.js'
 
 const CLIENT_ID = 'test-client-id.apps.googleusercontent.com'
 const GOOGLE_ISSUER = 'https://accounts.google.com'

@@ -1,6 +1,6 @@
-import { classifyHealth, completionRate, type Health } from './consistency'
-import { currentStreak, dateRange } from './date'
-import { activityLevel, type ActivityLevel } from './level'
+import { classifyHealth, completionRate, type Health } from './consistency.js'
+import { currentStreak, dateRange } from './date.js'
+import { activityLevel, type ActivityLevel } from './level.js'
 
 export interface DashboardHabitInput {
   id: number

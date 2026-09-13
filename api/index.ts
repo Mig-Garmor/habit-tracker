@@ -1,5 +1,5 @@
 import { handle } from 'hono/vercel'
-import { createApp } from '../server/app'
+import { createApp } from '../server/app.js'
 
 // One catch-all function for the whole API. `handle` forwards the incoming
 // Request to the Hono app, so no route needs to know it is running on Vercel.

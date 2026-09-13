@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { classifyHealth, completionRate } from './consistency'
-import { lastNDays, previousDay } from './date'
+import { classifyHealth, completionRate } from './consistency.js'
+import { lastNDays, previousDay } from './date.js'
 
 const TODAY = '2026-09-30'
 

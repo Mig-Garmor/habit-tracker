@@ -1,7 +1,7 @@
 import { PGlite } from '@electric-sql/pglite'
 import { drizzle } from 'drizzle-orm/pglite'
 import { migrate } from 'drizzle-orm/pglite/migrator'
-import * as schema from '../db/schema'
+import * as schema from '../db/schema.js'
 
 /**
  * A real Postgres, compiled to WASM and running in this process. Route tests

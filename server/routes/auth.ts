@@ -1,7 +1,7 @@
 import type { Context } from 'hono'
 import { Hono } from 'hono'
 import { deleteCookie, setCookie } from 'hono/cookie'
-import { isAllowed, parseAllowlist } from '../auth/allowlist'
+import { isAllowed, parseAllowlist } from '../auth/allowlist.js'
 import {
   readSessionCookie,
   requestIsSecure,
@@ -9,9 +9,9 @@ import {
   SESSION_COOKIE_SECURE,
   sessionCookieName,
   sessionCookieOptions,
-} from '../auth/cookie'
-import { verifyGoogleIdToken } from '../auth/google'
-import { createSessionToken, readSessionToken } from '../auth/session'
+} from '../auth/cookie.js'
+import { verifyGoogleIdToken } from '../auth/google.js'
+import { createSessionToken, readSessionToken } from '../auth/session.js'
 
 export const authRoutes = new Hono()
 

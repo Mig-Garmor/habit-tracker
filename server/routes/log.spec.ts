@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
-import type { DashboardResponse } from '../lib/dashboard'
-import { createTestDb } from '../test/pg-harness'
-import { signedCookieHeader, TEST_EMAIL, TEST_SESSION_SECRET } from '../test/session-cookie'
+import type { DashboardResponse } from '../lib/dashboard.js'
+import { createTestDb } from '../test/pg-harness.js'
+import { signedCookieHeader, TEST_EMAIL, TEST_SESSION_SECRET } from '../test/session-cookie.js'
 
 const holder = vi.hoisted(() => ({ db: undefined as unknown }))
 
@@ -60,8 +60,8 @@ beforeAll(async () => {
   holder.db = db
   closeTestDb = close
 
-  todayKey = (await import('../lib/date')).today()
-  app = (await import('../app')).createApp()
+  todayKey = (await import('../lib/date.js')).today()
+  app = (await import('../app.js')).createApp()
 
   const create = async (body: unknown) => {
     const { habit } = await readJson<CreateHabitResponse>(app.request('/api/habits', {

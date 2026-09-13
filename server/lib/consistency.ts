@@ -1,4 +1,4 @@
-import { dateRange, lastNDays } from './date'
+import { dateRange, lastNDays } from './date.js'
 
 /**
  * How consistent a habit is, and whether to suggest parking it. Change these

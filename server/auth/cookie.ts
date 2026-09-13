@@ -1,8 +1,8 @@
 import type { Context } from 'hono'
 import { getCookie } from 'hono/cookie'
 import type { CookieOptions } from 'hono/utils/cookie'
-import { isSecureRequest } from './request'
-import { SESSION_MAX_AGE_SECONDS } from './session'
+import { isSecureRequest } from './request.js'
+import { SESSION_MAX_AGE_SECONDS } from './session.js'
 
 /**
  * The `__Host-` prefix requires Secure, Path=/ and no Domain, and in exchange

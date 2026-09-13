@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
-import { signedCookieHeader, TEST_SESSION_SECRET } from '../test/session-cookie'
-import { createTestDb } from '../test/pg-harness'
+import { signedCookieHeader, TEST_SESSION_SECRET } from '../test/session-cookie.js'
+import { createTestDb } from '../test/pg-harness.js'
 
 const holder = vi.hoisted(() => ({ db: undefined as unknown }))
 
@@ -16,7 +16,7 @@ vi.mock('../db/client', () => ({
 // overrides it for a single call, to reach that branch without a real Google
 // token.
 vi.mock('../auth/google', async importOriginal => {
-  const actual = await importOriginal<typeof import('../auth/google')>()
+  const actual = await importOriginal<typeof import('../auth/google.js')>()
   return { ...actual, verifyGoogleIdToken: vi.fn(actual.verifyGoogleIdToken) }
 })
 
@@ -31,7 +31,7 @@ beforeAll(async () => {
   const harness = await createTestDb()
   holder.db = harness.db
   close = harness.close
-  app = (await import('../app')).createApp()
+  app = (await import('../app.js')).createApp()
 })
 
 afterAll(async () => {
@@ -45,7 +45,7 @@ describe('the guard', () => {
   })
 
   it('refuses a cookie signed with the wrong secret', async () => {
-    const { createSessionToken } = await import('../auth/session')
+    const { createSessionToken } = await import('../auth/session.js')
     const forged = await createSessionToken('me@example.com', 'a-completely-different-secret-32b')
     const response = await app.request('/api/habits', {
       headers: { cookie: `habit_session=${forged}` },
@@ -72,7 +72,7 @@ describe('the guard', () => {
   })
 
   it('accepts a session under the __Host- name', async () => {
-    const { createSessionToken } = await import('../auth/session')
+    const { createSessionToken } = await import('../auth/session.js')
     const token = await createSessionToken('me@example.com', TEST_SESSION_SECRET)
     const response = await app.request('/api/habits', {
       headers: { cookie: `__Host-habit_session=${token}` },
@@ -132,7 +132,7 @@ describe('POST /api/auth/session', () => {
   })
 
   it('returns 403 for a Google-verified account outside the allowlist', async () => {
-    const { verifyGoogleIdToken } = await import('../auth/google')
+    const { verifyGoogleIdToken } = await import('../auth/google.js')
     vi.mocked(verifyGoogleIdToken).mockResolvedValueOnce('not-on-the-list@example.com')
 
     const response = await post({ credential: 'irrelevant' })
@@ -144,7 +144,7 @@ describe('POST /api/auth/session', () => {
   // ship silently without a test that goes through a real sign-in with
   // x-forwarded-proto set, the way Vercel's edge presents the request.
   it('issues a __Host- cookie with Secure, HttpOnly and SameSite when forwarded as https', async () => {
-    const { verifyGoogleIdToken } = await import('../auth/google')
+    const { verifyGoogleIdToken } = await import('../auth/google.js')
     vi.mocked(verifyGoogleIdToken).mockResolvedValueOnce('me@example.com')
 
     const response = await app.request('/api/auth/session', {
@@ -166,7 +166,7 @@ describe('POST /api/auth/session', () => {
   })
 
   it('issues the plain, non-Secure cookie when there is no forwarded protocol', async () => {
-    const { verifyGoogleIdToken } = await import('../auth/google')
+    const { verifyGoogleIdToken } = await import('../auth/google.js')
     vi.mocked(verifyGoogleIdToken).mockResolvedValueOnce('me@example.com')
 
     const response = await post({ credential: 'irrelevant' })

@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
-import type { Habit } from '../db/schema'
-import { createTestDb } from '../test/pg-harness'
-import { signedCookieHeader, TEST_EMAIL, TEST_SESSION_SECRET } from '../test/session-cookie'
+import type { Habit } from '../db/schema.js'
+import { createTestDb } from '../test/pg-harness.js'
+import { signedCookieHeader, TEST_EMAIL, TEST_SESSION_SECRET } from '../test/session-cookie.js'
 
 const holder = vi.hoisted(() => ({ db: undefined as unknown }))
 
@@ -30,7 +30,7 @@ beforeAll(async () => {
   const { db, close } = await createTestDb()
   holder.db = db
   closeTestDb = close
-  app = (await import('../app')).createApp()
+  app = (await import('../app.js')).createApp()
 })
 
 afterAll(async () => {

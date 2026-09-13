@@ -1,9 +1,9 @@
 import { asc, eq } from 'drizzle-orm'
 import { Hono } from 'hono'
-import { db } from '../db/client'
-import { habitEntries, habits } from '../db/schema'
-import { buildDashboard } from '../lib/dashboard'
-import { previousDay, startOfWeek, today } from '../lib/date'
+import { db } from '../db/client.js'
+import { habitEntries, habits } from '../db/schema.js'
+import { buildDashboard } from '../lib/dashboard.js'
+import { previousDay, startOfWeek, today } from '../lib/date.js'
 
 export const dashboardRoutes = new Hono()
 

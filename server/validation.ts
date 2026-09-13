@@ -1,6 +1,6 @@
 import { z } from 'zod'
-import { habitKinds, habitStatuses } from './db/schema'
-import { isValidDateKey } from './lib/date'
+import { habitKinds, habitStatuses } from './db/schema.js'
+import { isValidDateKey } from './lib/date.js'
 
 export const dateKeySchema = z
   .string()

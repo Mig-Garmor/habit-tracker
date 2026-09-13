@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { buildDashboard } from './dashboard'
+import { buildDashboard } from './dashboard.js'
 
 const TODAY = '2026-09-12'
 const FROM = '2026-09-07'
