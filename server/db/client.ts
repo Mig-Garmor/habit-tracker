@@ -1,16 +1,22 @@
-import { mkdirSync } from 'node:fs'
-import { dirname, resolve } from 'node:path'
-import Database from 'better-sqlite3'
-import { drizzle } from 'drizzle-orm/better-sqlite3'
+import { Pool } from '@neondatabase/serverless'
+import { drizzle } from 'drizzle-orm/neon-serverless'
 import * as schema from './schema'
 
-/** Gitignored — your real data. Override with DATABASE_PATH for scripts/tests. */
-export const DB_PATH = process.env.DATABASE_PATH ?? resolve(process.cwd(), 'data/habits.db')
+const connectionString = process.env.DATABASE_URL
 
-mkdirSync(dirname(DB_PATH), { recursive: true })
+if (!connectionString) {
+  throw new Error(
+    'DATABASE_URL is not set. Copy .env.example to .env and paste your Neon connection string.',
+  )
+}
 
-export const sqlite = new Database(DB_PATH)
-sqlite.pragma('journal_mode = WAL')
-sqlite.pragma('foreign_keys = ON')
+export const DATABASE_URL = connectionString
 
-export const db = drizzle(sqlite, { schema })
+/**
+ * Pool over WebSocket rather than the HTTP driver: `neon-http` has no
+ * transaction support, and PUT /api/log/:date needs a real one so a partial
+ * day cannot commit while the client is told the save failed (D-14).
+ */
+export const pool = new Pool({ connectionString })
+
+export const db = drizzle(pool, { schema })

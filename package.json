@@ -15,14 +15,14 @@
     "db:generate": "drizzle-kit generate",
     "db:migrate": "tsx scripts/migrate.ts",
     "db:seed": "tsx scripts/seed.ts",
-    "db:reset": "rm -f data/habits.db data/habits.db-shm data/habits.db-wal && pnpm db:migrate && pnpm db:seed",
+    "db:reset": "tsx scripts/reset.ts && pnpm db:migrate && pnpm db:seed",
     "db:studio": "drizzle-kit studio"
   },
   "dependencies": {
     "@hono/node-server": "^2.1.1",
     "@hono/zod-validator": "^0.9.1",
+    "@neondatabase/serverless": "^1.1.0",
     "@vueuse/core": "^14.4.0",
-    "better-sqlite3": "^13.0.3",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "drizzle-orm": "^0.45.2",
@@ -35,11 +35,12 @@
     "zod": "^4.6.2"
   },
   "devDependencies": {
-    "@types/better-sqlite3": "^9.6.0",
+    "@electric-sql/pglite": "^0.5.8",
     "@types/node": "^24.13.3",
     "@vitejs/plugin-vue": "^6.0.8",
     "@vue/tsconfig": "^0.9.1",
     "autoprefixer": "^10.5.6",
+    "dotenv": "^17.4.2",
     "drizzle-kit": "^0.31.10",
     "npm-run-all2": "^9.0.3",
     "postcss": "^8.5.28",

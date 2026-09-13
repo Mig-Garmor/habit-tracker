@@ -1,29 +1,26 @@
-import { mkdtempSync, rmSync } from 'node:fs'
-import { tmpdir } from 'node:os'
-import { join } from 'node:path'
-import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+import { beforeAll, describe, expect, it, vi } from 'vitest'
 import type { Habit } from '../db/schema'
+import { createTestDb } from '../test/pg-harness'
+
+const holder = vi.hoisted(() => ({ db: undefined as unknown }))
+
+// A getter, not a value: the database does not exist until beforeAll runs, and
+// the routes read this binding on every call rather than capturing it once.
+vi.mock('../db/client', () => ({
+  get db() {
+    return holder.db
+  },
+}))
 
 let app: { request: (path: string, init?: RequestInit) => Response | Promise<Response> }
-let dir: string
 
 async function readJson<T>(response: Response | Promise<Response>): Promise<T> {
   return (await (await response).json()) as T
 }
 
 beforeAll(async () => {
-  dir = mkdtempSync(join(tmpdir(), 'habit-routes-'))
-  process.env.DATABASE_PATH = join(dir, 'test.db')
-
-  const { db } = await import('../db/client')
-  const { migrate } = await import('drizzle-orm/better-sqlite3/migrator')
-  migrate(db, { migrationsFolder: './drizzle' })
-
+  holder.db = await createTestDb()
   app = (await import('../app')).createApp()
-})
-
-afterAll(() => {
-  rmSync(dir, { recursive: true, force: true })
 })
 
 function post(path: string, body: unknown) {

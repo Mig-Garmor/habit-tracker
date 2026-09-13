@@ -1,8 +1,16 @@
-import { mkdtempSync, rmSync } from 'node:fs'
-import { tmpdir } from 'node:os'
-import { join } from 'node:path'
-import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+import { beforeAll, describe, expect, it, vi } from 'vitest'
 import type { DashboardResponse } from '../lib/dashboard'
+import { createTestDb } from '../test/pg-harness'
+
+const holder = vi.hoisted(() => ({ db: undefined as unknown }))
+
+// A getter, not a value: the database does not exist until beforeAll runs, and
+// the routes read this binding on every call rather than capturing it once.
+vi.mock('../db/client', () => ({
+  get db() {
+    return holder.db
+  },
+}))
 
 interface CreateHabitResponse {
   habit: { id: number }
@@ -31,7 +39,6 @@ interface LogDayResponse {
 }
 
 let app: { request: (path: string, init?: RequestInit) => Response | Promise<Response> }
-let dir: string
 let todayKey: string
 let exerciseId: number
 let meditationId: number
@@ -41,12 +48,7 @@ async function readJson<T>(response: Response | Promise<Response>): Promise<T> {
 }
 
 beforeAll(async () => {
-  dir = mkdtempSync(join(tmpdir(), 'habit-log-'))
-  process.env.DATABASE_PATH = join(dir, 'test.db')
-
-  const { db } = await import('../db/client')
-  const { migrate } = await import('drizzle-orm/better-sqlite3/migrator')
-  migrate(db, { migrationsFolder: './drizzle' })
+  holder.db = await createTestDb()
 
   todayKey = (await import('../lib/date')).today()
   app = (await import('../app')).createApp()
@@ -62,10 +64,6 @@ beforeAll(async () => {
 
   exerciseId = await create({ name: 'Exercise', notesEnabled: true })
   meditationId = await create({ name: 'Meditation', kind: 'quantity', unit: 'minutes', target: 10 })
-})
-
-afterAll(() => {
-  rmSync(dir, { recursive: true, force: true })
 })
 
 function put(date: string, entries: unknown[]) {
