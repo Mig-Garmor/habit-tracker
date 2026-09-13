@@ -16,7 +16,6 @@ export function requireSession(): MiddlewareHandler {
     const email = await readSessionToken(getCookie(c, SESSION_COOKIE) ?? '', secret)
     if (!email) return c.json({ error: 'Not signed in' }, 401)
 
-    c.set('email', email)
     await next()
   }
 }

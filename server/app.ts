@@ -10,7 +10,7 @@ import { logRoutes } from './routes/log'
  * without binding a port.
  */
 export function createApp() {
-  const app = new Hono<{ Variables: { email: string } }>()
+  const app = new Hono()
 
   // Open: health reveals nothing, and auth is how a session is obtained.
   app.get('/api/health', c => c.json({ ok: true }))
