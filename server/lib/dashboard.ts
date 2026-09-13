@@ -1,5 +1,5 @@
-import { classifyHealth, completionRate, type Health } from './consistency.js'
-import { currentStreak, dateRange } from './date.js'
+import { classifyHealth, completionRate, currentStreak, type Health } from './consistency.js'
+import { dateRange } from './date.js'
 import { activityLevel, type ActivityLevel } from './level.js'
 
 export interface DashboardHabitInput {
@@ -10,6 +10,8 @@ export interface DashboardHabitInput {
   target: number | null
   notesEnabled: boolean
   activatedAt: string | null
+  /** How many times a week the habit is meant to happen. 7 is daily (D-26). */
+  timesPerWeek: number
 }
 
 export interface DashboardEntryInput {
@@ -92,9 +94,9 @@ export function buildDashboard(
     return {
       ...habit,
       days,
-      streak: currentStreak(completedDates, today),
-      rate: completionRate(completedDates, today, habit.activatedAt),
-      health: classifyHealth(completedDates, today, habit.activatedAt),
+      streak: currentStreak(completedDates, today, habit.activatedAt, habit.timesPerWeek),
+      rate: completionRate(completedDates, today, habit.activatedAt, habit.timesPerWeek),
+      health: classifyHealth(completedDates, today, habit.activatedAt, habit.timesPerWeek),
     }
   })
 

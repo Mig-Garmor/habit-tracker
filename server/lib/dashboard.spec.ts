@@ -6,12 +6,12 @@ const FROM = '2026-09-07'
 
 const exercise = {
   id: 1, name: 'Exercise', kind: 'binary' as const, unit: null,
-  target: null, notesEnabled: true, activatedAt: '2026-01-01',
+  target: null, notesEnabled: true, activatedAt: '2026-01-01', timesPerWeek: 7,
 }
 
 const meditation = {
   id: 2, name: 'Meditation', kind: 'quantity' as const, unit: 'minutes',
-  target: 10, notesEnabled: false, activatedAt: '2026-01-01',
+  target: 10, notesEnabled: false, activatedAt: '2026-01-01', timesPerWeek: 7,
 }
 
 function entry(habitId: number, date: string, value: number | null, note: string | null = null) {
@@ -58,14 +58,19 @@ describe('buildDashboard', () => {
     expect(result.habits[1]!.days.filter(d => d.completed).map(d => d.date)).toEqual(['2026-09-10'])
   })
 
-  it('computes a streak that tolerates an unlogged today', () => {
+  // D-25 changed what a streak counts: consecutive WEEKS that met cadence,
+  // not consecutive days. Exercise is cadence 7, so two days inside the
+  // current week is 2 of 7 — the week has not been met, and a week that has
+  // not been met yet does not itself break the streak; there is simply no
+  // earlier met week behind it.
+  it('does not count a part-finished week toward the streak', () => {
     const result = buildDashboard(
       [exercise],
       [entry(1, '2026-09-10', null), entry(1, '2026-09-11', null)],
       FROM,
       TODAY,
     )
-    expect(result.habits[0]!.streak).toBe(2)
+    expect(result.habits[0]!.streak).toBe(0)
   })
 
   it('echoes the range it was given', () => {

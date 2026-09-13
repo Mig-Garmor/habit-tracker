@@ -31,6 +31,12 @@ export const habits = pgTable('habits', {
    * dragged) keep their original creation order rather than an arbitrary one.
    */
   position: integer('position').notNull().default(0),
+  /**
+   * How many times a week the habit is meant to happen (D-20). 7 means daily,
+   * so every existing habit is already correct and no calculation needs a
+   * "daily" special case (D-26).
+   */
+  timesPerWeek: integer('times_per_week').notNull().default(7),
   createdAt: timestamp('created_at', { mode: 'string', withTimezone: true })
     .notNull()
     .defaultNow(),
