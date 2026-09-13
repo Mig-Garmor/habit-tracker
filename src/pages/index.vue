@@ -82,7 +82,10 @@ onMounted(load)
 
       <Card v-for="habit in data.habits" :key="habit.id">
         <CardHeader class="dashboard__habit-header">
-          <CardTitle>{{ habit.name }}</CardTitle>
+          <CardTitle>
+            {{ habit.name }}
+            <span class="dashboard__cadence">{{ habit.timesPerWeek === 7 ? 'daily' : `${habit.timesPerWeek}× a week` }}</span>
+          </CardTitle>
           <HealthPill :health="habit.health" :rate="habit.rate" />
         </CardHeader>
         <CardContent>
@@ -92,7 +95,7 @@ onMounted(load)
               · target {{ habit.target }} {{ habit.unit }}
             </template>
           </p>
-          <ActivityGrid :days="habit.days" :unit="habit.unit" />
+          <ActivityGrid :days="habit.days" :unit="habit.unit" :weeks="habit.weeks" />
         </CardContent>
       </Card>
     </template>
