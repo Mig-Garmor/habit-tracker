@@ -44,3 +44,25 @@ describe('session tokens', () => {
     expect(SESSION_MAX_AGE_SECONDS).toBe(60 * 60 * 24 * 30)
   })
 })
+
+describe('secret length enforcement', () => {
+  // Exactly 32 ASCII bytes: the accepted boundary.
+  const LONG_ENOUGH_SECRET = 'x'.repeat(32)
+  // One byte short of the boundary: must be rejected.
+  const TOO_SHORT_SECRET = 'x'.repeat(31)
+
+  it('createSessionToken throws for a too-short secret', async () => {
+    await expect(createSessionToken('me@example.com', TOO_SHORT_SECRET)).rejects.toThrow()
+  })
+
+  it('readSessionToken returns null for a too-short secret', async () => {
+    // Signed with a long-enough secret so only the *read* side is under test.
+    const token = await createSessionToken('me@example.com', LONG_ENOUGH_SECRET)
+    expect(await readSessionToken(token, TOO_SHORT_SECRET)).toBeNull()
+  })
+
+  it('accepts a secret that is exactly 32 bytes', async () => {
+    const token = await createSessionToken('me@example.com', LONG_ENOUGH_SECRET)
+    expect(await readSessionToken(token, LONG_ENOUGH_SECRET)).toBe('me@example.com')
+  })
+})
