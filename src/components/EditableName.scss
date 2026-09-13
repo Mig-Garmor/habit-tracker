@@ -4,7 +4,7 @@
   // Reads as plain text until hovered, so the lists stay lists rather than
   // looking like a form. The hover tint is the only hint that it is editable.
   &__button {
-    @apply w-full rounded-sm px-1 py-0.5 text-left text-sm font-medium transition-colors;
+    @apply w-full rounded-sm px-1 py-0.5 text-left text-base font-medium transition-colors md:text-sm;
     @apply -ml-1;
 
     &:hover:not(:disabled) {
@@ -21,6 +21,6 @@
   }
 
   &__input {
-    @apply h-7 py-0 text-sm font-medium;
+    @apply h-7 py-0 text-base font-medium md:text-sm;
   }
 }
