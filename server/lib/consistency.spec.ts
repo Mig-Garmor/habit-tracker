@@ -1,10 +1,13 @@
 import { describe, expect, it } from 'vitest'
 import {
-  classifyHealth, completionRate, currentStreak, weekSummaries,
+  classifyHealth, completionRate, currentStreak, summariseWeeks, weekSummaries,
 } from './consistency.js'
 import { weekDays } from './date.js'
 
-// Monday 2026-08-17, 2026-08-24, 2026-08-31, 2026-09-07. "Today" is Wed 2026-09-09.
+// Monday 2026-08-10, 2026-08-17, 2026-08-24, 2026-08-31, 2026-09-07.
+// "Today" is Wed 2026-09-09, whose week (W4) is incomplete. The scoring
+// window is WINDOW_WEEKS (4) complete weeks plus the current one (D-24),
+// i.e. lastNWeekStarts(WINDOW_WEEKS + 1, TODAY) = [W0, W1, W2, W3, W4].
 const TODAY = '2026-09-09'
 const ACTIVATED = '2026-06-01'
 
@@ -13,6 +16,7 @@ function daysIn(weekStart: string, n: number): string[] {
   return weekDays(weekStart).slice(0, n)
 }
 
+const W0 = '2026-08-10'
 const W1 = '2026-08-17'
 const W2 = '2026-08-24'
 const W3 = '2026-08-31'
@@ -20,39 +24,43 @@ const W4 = '2026-09-07' // the week containing TODAY — incomplete
 
 describe('completionRate with cadence', () => {
   it('scores a 4x/week habit kept exactly as 1.0', () => {
-    const done = [...daysIn(W1, 4), ...daysIn(W2, 4), ...daysIn(W3, 4)]
+    const done = [...daysIn(W0, 4), ...daysIn(W1, 4), ...daysIn(W2, 4), ...daysIn(W3, 4)]
     expect(completionRate(done, TODAY, ACTIVATED, 4)).toBe(1)
   })
 
   it('scores a 1x/week habit kept exactly as 1.0', () => {
-    const done = [...daysIn(W1, 1), ...daysIn(W2, 1), ...daysIn(W3, 1)]
+    const done = [...daysIn(W0, 1), ...daysIn(W1, 1), ...daysIn(W2, 1), ...daysIn(W3, 1)]
     expect(completionRate(done, TODAY, ACTIVATED, 1)).toBe(1)
   })
 
   it('caps a week at 100% and does not carry the surplus (D-22)', () => {
-    // W1 is also in the 4-week window, complete, and long after activation —
-    // it counts as a genuine zero, same as the adjacent "week in progress"
-    // test below treats W1-W3 as complete-and-empty. So the window here is
-    // W1 (0/4=0), W2 (6/4 capped to 1), W3 (2/4=0.5): average 0.5, not 0.75 —
-    // 6 then 2 against a cadence of 4 caps, it does not carry the surplus.
+    // The window is W0-W3 complete, W4 in progress. W0 and W1 are complete,
+    // long after activation, and have no logged days, so they count as
+    // genuine zeros; W2 is 6/4 capped to 1; W3 is 2/4 = 0.5. Average of
+    // [0, 0, 1, 0.5] over 4 weeks is 0.375 — 6 then 2 against a cadence of
+    // 4 caps, it does not carry the surplus.
     const done = [...daysIn(W2, 6), ...daysIn(W3, 2)]
-    expect(completionRate(done, TODAY, ACTIVATED, 4)).toBeCloseTo(0.5, 5)
+    expect(completionRate(done, TODAY, ACTIVATED, 4)).toBeCloseTo(0.375, 5)
   })
 
   it('ignores an unmet week in progress (D-21)', () => {
-    const done = [...daysIn(W1, 4), ...daysIn(W2, 4), ...daysIn(W3, 4), ...daysIn(W4, 1)]
+    const done = [
+      ...daysIn(W0, 4), ...daysIn(W1, 4), ...daysIn(W2, 4), ...daysIn(W3, 4), ...daysIn(W4, 1),
+    ]
     // The single day of the current week must not drag 1.0 down.
     expect(completionRate(done, TODAY, ACTIVATED, 4)).toBe(1)
   })
 
   it('counts a week in progress once it has met cadence (D-21)', () => {
     const done = [...daysIn(W3, 0), ...daysIn(W4, 2)]
-    // W4 met a cadence of 2, so it counts; W1-W3 are complete and empty.
-    expect(completionRate(done, TODAY, ACTIVATED, 2)).toBeCloseTo(0.25, 5)
+    // W4 met a cadence of 2, so it counts; W0-W3 are complete and empty.
+    // Average of [0, 0, 0, 0, 1] over 5 weeks is 0.2.
+    expect(completionRate(done, TODAY, ACTIVATED, 2)).toBeCloseTo(0.2, 5)
   })
 
   it('ignores the activation week unless it met cadence (D-21)', () => {
-    // Activated mid-W3, did 1 of 4 that week. W3 must not count.
+    // Activated mid-W3, did 1 of 4 that week. W3 must not count, and nothing
+    // before activation counts either, so the window is entirely excluded.
     const done = daysIn(W3, 1)
     expect(completionRate(done, TODAY, '2026-09-03', 4)).toBe(0)
   })
@@ -94,12 +102,12 @@ describe('classifyHealth with cadence', () => {
   })
 
   it('rates a perfectly kept 4x/week habit consistent, which it never could before', () => {
-    const done = [...daysIn(W1, 4), ...daysIn(W2, 4), ...daysIn(W3, 4)]
+    const done = [...daysIn(W0, 4), ...daysIn(W1, 4), ...daysIn(W2, 4), ...daysIn(W3, 4)]
     expect(classifyHealth(done, TODAY, ACTIVATED, 4)).toBe('consistent')
   })
 
   it('rates a perfectly kept weekly habit consistent, not struggling', () => {
-    const done = [...daysIn(W1, 1), ...daysIn(W2, 1), ...daysIn(W3, 1)]
+    const done = [...daysIn(W0, 1), ...daysIn(W1, 1), ...daysIn(W2, 1), ...daysIn(W3, 1)]
     expect(classifyHealth(done, TODAY, ACTIVATED, 1)).toBe('consistent')
   })
 
@@ -108,10 +116,33 @@ describe('classifyHealth with cadence', () => {
   })
 })
 
+/**
+ * Grace is about accumulated evidence, not elapsed calendar time (D-...,
+ * item 4 of the final-fixes brief). The activation week and an unmet current
+ * week are both excluded from what counts, so "two calendar weeks since
+ * activation" is not the same thing as "two counted weeks" — these pin the
+ * count directly rather than the elapsed time that used to stand in for it.
+ */
+describe('grace counts scorable weeks, not elapsed calendar time', () => {
+  it('is new with exactly one counted week', () => {
+    // Activated at the start of W2: W2 itself is the activation week (only
+    // counts if met, and nothing is logged), so only W3 is settled. One
+    // counted week is not enough evidence to judge.
+    expect(classifyHealth([], TODAY, W2, 4)).toBe('new')
+  })
+
+  it('is judged once two weeks are counted', () => {
+    // Activated at the start of W1: W2 and W3 are both settled (complete and
+    // after activation), regardless of whether they were met. Two counted
+    // weeks with nothing logged score 0 — struggling, not new.
+    expect(classifyHealth([], TODAY, W1, 4)).toBe('struggling')
+  })
+})
+
 describe('weekSummaries', () => {
-  it('reports every window week plus the current one, ascending', () => {
+  it('reports the scoring window plus the current week, ascending', () => {
     const summaries = weekSummaries(daysIn(W3, 2), TODAY, ACTIVATED, 4)
-    expect(summaries.map(s => s.start)).toEqual([W1, W2, W3, W4])
+    expect(summaries.map(s => s.start)).toEqual([W0, W1, W2, W3, W4])
   })
 
   it('reports completed, expected and met per week', () => {
@@ -125,6 +156,25 @@ describe('weekSummaries', () => {
     const third = summaries.find(s => s.start === W3)!
     expect(third.completed).toBe(6)
     expect(third.met).toBe(true)
+  })
+})
+
+describe('summariseWeeks', () => {
+  it('reports one summary per given week start, in the order given', () => {
+    const done = [...daysIn(W1, 4), ...daysIn(W3, 2)]
+    const summaries = summariseWeeks(done, [W3, W1], 4)
+    expect(summaries).toEqual([
+      { start: W3, completed: 2, expected: 4, met: false },
+      { start: W1, completed: 4, expected: 4, met: true },
+    ])
+  })
+
+  it('is not gated by activation — it just summarises the weeks it is given', () => {
+    // Unlike weekSummaries, this has no activatedAt to check: a dashboard's
+    // rendered range can predate activation entirely.
+    expect(summariseWeeks([], [W0], 4)).toEqual([
+      { start: W0, completed: 0, expected: 4, met: false },
+    ])
   })
 })
 
@@ -158,8 +208,10 @@ describe('streak tolerance (D-25a)', () => {
   })
 
   it('leaves the rate strict — tolerance is streak-only', () => {
-    // 6 of 7 is a kept streak but NOT a met week: the rate must still show it.
-    const done = [...daysIn(W1, 6), ...daysIn(W2, 6), ...daysIn(W3, 6)]
+    // 6 of 7 is a kept streak but NOT a met week: the rate must still show
+    // it, across all four scored complete weeks (W0-W3): 6/7 each, average
+    // 6/7.
+    const done = [...daysIn(W0, 6), ...daysIn(W1, 6), ...daysIn(W2, 6), ...daysIn(W3, 6)]
     expect(completionRate(done, TODAY, ACTIVATED, 7)).toBeCloseTo(6 / 7, 5)
   })
 })

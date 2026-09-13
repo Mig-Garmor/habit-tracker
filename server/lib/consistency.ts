@@ -1,5 +1,5 @@
 import {
-  isWeekComplete, lastNWeekStarts, nextWeek, previousWeek, startOfWeek, weekDays,
+  isWeekComplete, lastNWeekStarts, previousWeek, startOfWeek, weekDays,
 } from './date.js'
 
 /**
@@ -27,9 +27,34 @@ export interface WeekSummary {
 }
 
 /**
- * One entry per week in the window, oldest first, always including the week
- * that contains `today`. `completed` is the real count, uncapped, so the UI can
- * show a genuinely heavy week; `met` is what scoring uses (D-22).
+ * One summary per week start given, in the order given. `completed` is the
+ * real count, uncapped, so the UI can show a genuinely heavy week; `met` is
+ * what scoring uses (D-22). Takes an arbitrary list of week starts so the
+ * scoring window (`weekSummaries`) and the full rendered range (the
+ * dashboard's `weeks`, built in `dashboard.ts`) can share this without
+ * agreeing on which weeks either one covers.
+ */
+export function summariseWeeks(
+  completedDates: Iterable<string>,
+  weekStarts: string[],
+  timesPerWeek: number,
+): WeekSummary[] {
+  const completed = new Set(completedDates)
+  const expected = Math.max(1, timesPerWeek)
+
+  return weekStarts.map(start => {
+    const done = weekDays(start).filter(day => completed.has(day)).length
+    return { start, completed: done, expected, met: done >= expected }
+  })
+}
+
+/**
+ * One entry per week in the scoring window, oldest first, always including
+ * the week that contains `today`. The window is `WINDOW_WEEKS` complete weeks
+ * plus the current one (D-24) — `+ 1` because `lastNWeekStarts` counts the
+ * current week as one of its own, and that week is only scored once met, so
+ * without the extra slot the window would deliver `WINDOW_WEEKS - 1` complete
+ * weeks instead of `WINDOW_WEEKS`.
  */
 export function weekSummaries(
   completedDates: Iterable<string>,
@@ -38,13 +63,7 @@ export function weekSummaries(
   timesPerWeek: number,
 ): WeekSummary[] {
   if (!activatedAt) return []
-  const completed = new Set(completedDates)
-  const expected = Math.max(1, timesPerWeek)
-
-  return lastNWeekStarts(WINDOW_WEEKS, today).map(start => {
-    const done = weekDays(start).filter(day => completed.has(day)).length
-    return { start, completed: done, expected, met: done >= expected }
-  })
+  return summariseWeeks(completedDates, lastNWeekStarts(WINDOW_WEEKS + 1, today), timesPerWeek)
 }
 
 /**
@@ -61,6 +80,22 @@ function weekCounts(summary: WeekSummary, today: string, activatedAt: string): b
   return settled || summary.met
 }
 
+/**
+ * The weeks in the scoring window that actually count (D-21): settled weeks,
+ * plus any week — settled or not — that already met cadence. Shared by
+ * `completionRate` and `classifyHealth` so grace and rate agree on exactly
+ * what evidence has accumulated.
+ */
+function countedWeeks(
+  completedDates: Iterable<string>,
+  today: string,
+  activatedAt: string,
+  timesPerWeek: number,
+): WeekSummary[] {
+  return weekSummaries(completedDates, today, activatedAt, timesPerWeek)
+    .filter(summary => weekCounts(summary, today, activatedAt))
+}
+
 /** Mean of capped week scores over the countable weeks (D-22, D-24). */
 export function completionRate(
   completedDates: Iterable<string>,
@@ -70,8 +105,7 @@ export function completionRate(
 ): number {
   if (!activatedAt) return 0
 
-  const counted = weekSummaries(completedDates, today, activatedAt, timesPerWeek)
-    .filter(summary => weekCounts(summary, today, activatedAt))
+  const counted = countedWeeks(completedDates, today, activatedAt, timesPerWeek)
   if (counted.length === 0) return 0
 
   const total = counted.reduce(
@@ -128,18 +162,6 @@ export function currentStreak(
   return streak
 }
 
-/** Whole weeks between the activation week and the current one — 0 during it. */
-function weeksSinceActivation(activatedAt: string, today: string): number {
-  let cursor = startOfWeek(activatedAt)
-  const target = startOfWeek(today)
-  let weeks = 0
-  while (cursor < target) {
-    cursor = nextWeek(cursor)
-    weeks += 1
-  }
-  return weeks
-}
-
 export function classifyHealth(
   completedDates: Iterable<string>,
   today: string,
@@ -147,7 +169,14 @@ export function classifyHealth(
   timesPerWeek: number,
 ): Health {
   if (!activatedAt) return 'new'
-  if (weeksSinceActivation(activatedAt, today) < GRACE_WEEKS) return 'new'
+
+  // Grace is about evidence, not elapsed time: a habit is judged only once
+  // GRACE_WEEKS worth of scorable weeks actually exist. Elapsed calendar time
+  // since activation is not enough on its own — the activation week and an
+  // unmet current week are both excluded from `counted`, so a fixed number of
+  // weeks since activation can still mean too little evidence to judge.
+  const counted = countedWeeks(completedDates, today, activatedAt, timesPerWeek)
+  if (counted.length < GRACE_WEEKS) return 'new'
 
   const rate = completionRate(completedDates, today, activatedAt, timesPerWeek)
   if (rate < STRUGGLING_BELOW) return 'struggling'
