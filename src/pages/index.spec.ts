@@ -47,18 +47,26 @@ async function mountPage() {
   return wrapper
 }
 
+/** Mounts a dashboard holding one habit with the given fields. */
+async function mountWith(overrides: Partial<DashboardHabit>) {
+  dashboard = { today: '2026-09-13', from: '2026-09-07', habits: [habit(overrides)], warnings: [] }
+  return mountPage()
+}
+
 describe('dashboard streak label', () => {
-  it('renders the plural "week streak" for a streak of 8', async () => {
+  // The wording shortened to fit a phone, but the unit is what this guards:
+  // currentStreak returns WEEKS, and the dashboard once printed them as days.
+  it('reports a streak of 8 in weeks, not days', async () => {
     dashboard = { today: '2026-09-13', from: '2026-09-07', habits: [habit({ streak: 8 })], warnings: [] }
     const wrapper = await mountPage()
-    expect(wrapper.text()).toContain('8 week streak')
+    expect(wrapper.text()).toContain('8w streak')
     expect(wrapper.text()).not.toContain('day streak')
   })
 
-  it('renders the singular "1 week streak" for a streak of 1', async () => {
+  it('reports a streak of 1 in weeks too', async () => {
     dashboard = { today: '2026-09-13', from: '2026-09-07', habits: [habit({ streak: 1 })], warnings: [] }
     const wrapper = await mountPage()
-    expect(wrapper.text()).toContain('1 week streak')
+    expect(wrapper.text()).toContain('1w streak')
     expect(wrapper.text()).not.toContain('day streak')
   })
 })
@@ -74,5 +82,48 @@ describe('dashboard warning banner', () => {
     const wrapper = await mountPage()
     expect(wrapper.text()).toContain('42% of recent weeks')
     expect(wrapper.text()).not.toContain('14 days')
+  })
+})
+
+/**
+ * The dashboard exists to be glanced at. Six habits used to take three screens
+ * because each was a card with a stacked header and a 112px grid; the point of
+ * the compact row is that consistency can be read in one look.
+ */
+describe('the compact habit row', () => {
+  it('states cadence and streak on one line, short enough for a phone', async () => {
+    const wrapper = await mountWith({ timesPerWeek: 4, streak: 3 })
+    const facts = wrapper.find('.dashboard__habit-facts').text()
+    expect(facts).toContain('4×/wk')
+    expect(facts).toContain('3w streak')
+    // The long forms do not fit beside a name and a health pill at 375px.
+    expect(facts).not.toContain('4× a week')
+    expect(facts).not.toContain('week streak · ')
+  })
+
+  it('calls a cadence of 7 daily rather than 7×/wk', async () => {
+    const wrapper = await mountWith({ timesPerWeek: 7, streak: 0 })
+    expect(wrapper.find('.dashboard__habit-facts').text()).toContain('daily')
+  })
+
+  it('keeps the target in its own element, so narrow screens can drop it', async () => {
+    // Hidden by CSS below the sm breakpoint rather than removed from the
+    // string, so the desktop line keeps it. Cutting a word in half reads as
+    // broken; dropping the least important fact reads as brief.
+    const wrapper = await mountWith({ kind: 'quantity', target: 15, unit: 'minutes', timesPerWeek: 7, streak: 0 })
+    expect(wrapper.find('.dashboard__habit-target').exists()).toBe(true)
+    expect(wrapper.find('.dashboard__habit-target').text()).toContain('15 minutes')
+  })
+
+  it('has no target element for a binary habit', async () => {
+    const wrapper = await mountWith({ kind: 'binary', timesPerWeek: 4, streak: 0 })
+    expect(wrapper.find('.dashboard__habit-target').exists()).toBe(false)
+  })
+
+  it('truncates a long name and keeps the whole one in the title', async () => {
+    const wrapper = await mountWith({ name: 'Record one video', timesPerWeek: 1, streak: 0 })
+    const name = wrapper.find('.dashboard__habit-name')
+    expect(name.text()).toBe('Record one…')
+    expect(name.attributes('title')).toBe('Record one video')
   })
 })

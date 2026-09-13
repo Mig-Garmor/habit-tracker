@@ -2,9 +2,9 @@
 import { onMounted, ref } from 'vue'
 import ActivityGrid from '@/components/ActivityGrid.vue'
 import HealthPill from '@/components/HealthPill.vue'
+import { isTruncated, truncateName } from '@/lib/truncate'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { fetchDashboard, updateHabit, type DashboardResponse } from '@/lib/api'
+import { fetchDashboard, updateHabit, type DashboardHabit, type DashboardResponse } from '@/lib/api'
 
 const data = ref<DashboardResponse | null>(null)
 const loading = ref(true)
@@ -36,8 +36,24 @@ async function park(habitId: number) {
   }
 }
 
-function streakLabel(streak: number) {
-  return streak === 1 ? '1 week streak' : `${streak} week streak`
+/**
+ * The facts line, written short enough to survive a phone.
+ *
+ * The long form ('4× a week · 0 week streak · 15 minutes') does not fit beside
+ * a name and a health pill at 375px, and truncating it cut words in half —
+ * '0 week s…' is worse than no streak at all, because it looks broken rather
+ * than brief. Abbreviations are unambiguous in context: a grid of weeks is
+ * right underneath.
+ */
+function facts(habit: DashboardHabit): string {
+  const cadence = habit.timesPerWeek === 7 ? 'daily' : `${habit.timesPerWeek}×/wk`
+  return `${cadence} · ${habit.streak}w streak`
+}
+
+/** The target, which is the first thing to go when the line will not fit. */
+function targetText(habit: DashboardHabit): string | null {
+  if (habit.kind !== 'quantity' || habit.target === null) return null
+  return `${habit.target} ${habit.unit ?? ''}`.trim()
 }
 
 onMounted(load)
@@ -80,29 +96,32 @@ onMounted(load)
         No active habits. Add one on the Habits screen.
       </p>
 
-      <Card v-for="habit in data.habits" :key="habit.id">
-        <CardHeader class="dashboard__habit-header">
-          <CardTitle>
-            {{ habit.name }}
-            <!--
-              A display affordance, not a calculation (D-26 is about the
-              latter — no scoring path branches on daily). "Daily" is what a
-              person calls a cadence of 7; "7× a week" would be worse writing.
-            -->
-            <span class="dashboard__cadence">{{ habit.timesPerWeek === 7 ? 'daily' : `${habit.timesPerWeek}× a week` }}</span>
-          </CardTitle>
+      <!--
+        One line of chrome, not three. Everything that used to stack — name,
+        cadence, streak, target, health — sits on a single row, so a habit is
+        about a third of its old height and every card is the same height
+        rather than varying with how much text it happens to carry.
+      -->
+      <article v-for="habit in data.habits" :key="habit.id" class="dashboard__habit">
+        <div class="dashboard__habit-line">
+          <h2 class="dashboard__habit-name" :title="isTruncated(habit.name) ? habit.name : undefined">
+            {{ truncateName(habit.name) }}
+          </h2>
+          <!--
+            A display affordance, not a calculation (D-26 is about the latter —
+            no scoring path branches on daily). "Daily" is what a person calls
+            a cadence of 7; "7× a week" would be worse writing.
+          -->
+          <span class="dashboard__habit-facts">
+            {{ facts(habit) }}<span
+              v-if="targetText(habit)"
+              class="dashboard__habit-target"
+            > · {{ targetText(habit) }}</span>
+          </span>
           <HealthPill :health="habit.health" :rate="habit.rate" />
-        </CardHeader>
-        <CardContent>
-          <p class="dashboard__habit-meta">
-            {{ streakLabel(habit.streak) }}
-            <template v-if="habit.kind === 'quantity'">
-              · target {{ habit.target }} {{ habit.unit }}
-            </template>
-          </p>
-          <ActivityGrid :days="habit.days" :unit="habit.unit" :weeks="habit.weeks" />
-        </CardContent>
-      </Card>
+        </div>
+        <ActivityGrid :days="habit.days" :unit="habit.unit" :weeks="habit.weeks" />
+      </article>
     </template>
   </div>
 </template>

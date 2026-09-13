@@ -1,5 +1,41 @@
 .dashboard {
-  @apply mx-auto flex w-full max-w-3xl flex-col gap-4;
+  /* gap-2, not gap-4: with six habits on screen the gaps alone were costing
+     more vertical space than a whole habit. */
+  @apply mx-auto flex w-full max-w-3xl flex-col gap-2;
+
+  &__habit {
+    @apply flex flex-col gap-1 rounded-lg border p-2;
+
+    @screen sm {
+      @apply gap-1.5 p-3;
+    }
+  }
+
+  &__habit-line {
+    @apply flex items-center gap-2;
+  }
+
+  &__habit-name {
+    /* Fixed width so every row's facts start at the same place — the list is
+       scanned down a column, not read one card at a time. */
+    @apply w-24 shrink-0 truncate text-sm font-semibold;
+  }
+
+  &__habit-facts {
+    @apply flex-1 truncate text-xs tabular-nums text-muted-foreground;
+  }
+
+  &__habit-target {
+    /* Hidden on a phone, where the line has to hold a name, a cadence, a
+       streak and a health pill in 375px. Cutting a word in half reads as
+       broken; dropping the least important fact reads as brief. The target is
+       already encoded in the square shading, and stated on the habits page. */
+    @apply hidden;
+
+    @screen sm {
+      @apply inline;
+    }
+  }
 
   &__state {
     @apply py-6 text-sm text-muted-foreground;
