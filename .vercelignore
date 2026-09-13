@@ -3,3 +3,5 @@ docs
 bruno
 *.md
 !README.md
+.env
+.env.production
