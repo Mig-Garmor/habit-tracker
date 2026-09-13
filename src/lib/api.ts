@@ -1,3 +1,5 @@
+import { useAuth } from './auth'
+
 export type HabitKind = 'binary' | 'quantity'
 export type HabitStatus = 'active' | 'upcoming' | 'archived'
 export type Health = 'new' | 'struggling' | 'steady' | 'consistent'
@@ -104,6 +106,18 @@ const API_UNREACHABLE =
 /** Surfaces the server's own message so the UI can say what actually went wrong. */
 async function json<T>(response: Response): Promise<T> {
   if (!response.ok) {
+    if (response.status === 401) {
+      // An expired or missing session should read as "sign in again", not as a
+      // generic failure on whichever screen happened to be open. `clearSession`
+      // updates shared state unconditionally; the redirect is browser-only so
+      // this file stays importable under vitest's node environment.
+      useAuth().clearSession()
+      if (typeof window !== 'undefined') {
+        window.location.assign('/login')
+      }
+      throw new Error('Your session has expired. Please sign in again.')
+    }
+
     if (API_UNREACHABLE_STATUSES.has(response.status)) {
       throw new Error(API_UNREACHABLE)
     }

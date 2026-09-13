@@ -1,0 +1,19 @@
+.login {
+  @apply mx-auto flex w-full max-w-sm flex-col items-center gap-4 py-16 text-center;
+
+  &__title {
+    @apply text-xl font-semibold tracking-tight;
+  }
+
+  &__lead {
+    @apply text-sm text-muted-foreground;
+  }
+
+  &__button {
+    @apply min-h-10;
+  }
+
+  &__error {
+    @apply text-sm text-destructive;
+  }
+}

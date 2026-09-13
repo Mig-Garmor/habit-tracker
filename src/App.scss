@@ -25,6 +25,14 @@
     }
   }
 
+  &__signout {
+    @apply ml-auto text-sm text-muted-foreground transition-colors;
+
+    &:hover {
+      @apply text-foreground;
+    }
+  }
+
   &__main {
     @apply container flex-1 py-10;
   }
