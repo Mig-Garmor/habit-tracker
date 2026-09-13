@@ -232,6 +232,39 @@ describe('PUT /api/habits/reorder', () => {
     expect(await ids()).toEqual(before)
   })
 
+  /**
+   * The requirement is not "the habits list reorders" — it is that the saved
+   * position is honoured *wherever habits are listed*. The dashboard and the
+   * log screen read habits through their own queries, so each can silently
+   * ignore position; the log screen did exactly that, sorting by id.
+   */
+  it('applies the saved order to the dashboard and the log screen too', async () => {
+    const reversed = [...(await ids())].reverse()
+    expect((await reorder(reversed)).status).toBe(200)
+
+    const dashboard = await readJson<{ habits: { id: number }[] }>(
+      app.request('/api/dashboard', { headers: { cookie } }),
+    )
+    expect(dashboard.habits.map(habit => habit.id)).toEqual(reversed)
+
+    const day = new Date().toISOString().slice(0, 10)
+    const log = await readJson<{ habits: { id: number }[] }>(
+      app.request(`/api/log/${day}`, { headers: { cookie } }),
+    )
+    expect(log.habits.map(habit => habit.id)).toEqual(reversed)
+  })
+
+  it('survives a round trip — the order is read back from the database', async () => {
+    const reversed = [...(await ids())].reverse()
+    await reorder(reversed)
+    // A fresh app instance, so nothing can be served from in-memory state.
+    const fresh = (await import('../app.js')).createApp()
+    const body = await readJson<{ habits: Habit[] }>(
+      fresh.request('/api/habits?status=active', { headers: { cookie } }),
+    )
+    expect(body.habits.map(habit => habit.id)).toEqual(reversed)
+  })
+
   it('requires a session', async () => {
     const response = await app.request('/api/habits/reorder', {
       method: 'PUT',
