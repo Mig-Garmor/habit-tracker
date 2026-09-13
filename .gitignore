@@ -23,3 +23,7 @@ typed-router.d.ts
 
 # Subagent-driven development scratch
 .superpowers/
+
+# Database dumps from pnpm db:export. Real habit history, and they would
+# otherwise grow in the repo forever.
+backups
