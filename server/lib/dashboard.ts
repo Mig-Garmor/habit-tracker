@@ -1,4 +1,6 @@
-import { classifyHealth, completionRate, currentStreak, type Health } from './consistency.js'
+import {
+  classifyHealth, completionRate, currentStreak, weekSummaries, type Health, type WeekSummary,
+} from './consistency.js'
 import { dateRange } from './date.js'
 import { activityLevel, type ActivityLevel } from './level.js'
 
@@ -35,6 +37,7 @@ export interface DashboardHabit extends DashboardHabitInput {
   streak: number
   rate: number
   days: DashboardDay[]
+  weeks: WeekSummary[]
 }
 
 export interface DashboardWarning {
@@ -97,6 +100,7 @@ export function buildDashboard(
       streak: currentStreak(completedDates, today, habit.activatedAt, habit.timesPerWeek),
       rate: completionRate(completedDates, today, habit.activatedAt, habit.timesPerWeek),
       health: classifyHealth(completedDates, today, habit.activatedAt, habit.timesPerWeek),
+      weeks: weekSummaries(completedDates, today, habit.activatedAt, habit.timesPerWeek),
     }
   })
 
