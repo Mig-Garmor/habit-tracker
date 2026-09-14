@@ -59,22 +59,13 @@
       --tw-ring-color: hsl(var(--foreground) / 0.45);
     }
 
-    /* A day that has not arrived yet: hollow, not filled.
-
-       Fading the fill was the obvious move and it does not work — `--muted` is
-       already only 1.10:1 against the page, so a fraction of it is invisible
-       rather than subtle, and the grid just looks like it stops early. Filled
-       vs hollow survives that, because it is a difference in SHAPE: a filled
-       square is a day that happened and went unlogged, an outlined one is a
-       slot nothing could have gone in yet.
-
-       An inset shadow rather than a border, so the square keeps its size, at
-       the same 1px the note ring already proves legible down to 8px.
+    /* A day that has not arrived yet: the same fill, lighter. No outline —
+       a square that recedes reads as "not yet" without drawing a border's
+       worth of attention to the part of the grid nothing has happened in.
 
        Not interactive, so it takes none of the hover or focus treatment. */
     &.is-future {
-      background-color: transparent;
-      box-shadow: inset 0 0 0 1px hsl(var(--muted-foreground) / 0.3);
+      background-color: hsl(var(--muted) / 0.45);
       cursor: default;
 
       &:hover {
