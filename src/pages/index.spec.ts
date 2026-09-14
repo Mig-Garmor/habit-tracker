@@ -193,3 +193,43 @@ describe('the days ahead of today', () => {
     expect(future.attributes('title')).not.toContain('nothing logged')
   })
 })
+
+/**
+ * Today needs to be findable at a glance now that the grid runs past it — the
+ * boundary between filled and lighter squares implies where today is, but only
+ * roughly, and never at all for a habit whose whole week is still empty.
+ *
+ * A dot inside the square rather than a ring around it: the grid already
+ * spends its outline vocabulary on notes (`has-note`) and on focus, and a
+ * third ring competing with those reads as chrome rather than as information.
+ */
+describe('marking today', () => {
+  const day = (date: string, future = false) =>
+    ({ date, completed: false, value: null, note: null, level: 0 as const, future })
+
+  // mountWith pins the dashboard's today to 2026-09-13.
+  async function mountGrid() {
+    return mountWith({
+      days: [day('2026-09-12'), day('2026-09-13'), day('2026-09-14', true)],
+    })
+  }
+
+  it('marks the square for today', async () => {
+    const wrapper = await mountGrid()
+    const squares = wrapper.findAll('.activity-grid__day')
+    expect(squares[1]!.classes()).toContain('is-today')
+  })
+
+  it('marks only that one square', async () => {
+    const wrapper = await mountGrid()
+    const marked = wrapper.findAll('.activity-grid__day').filter(s => s.classes().includes('is-today'))
+    expect(marked).toHaveLength(1)
+  })
+
+  it('leaves yesterday and tomorrow unmarked', async () => {
+    const wrapper = await mountGrid()
+    const squares = wrapper.findAll('.activity-grid__day')
+    expect(squares[0]!.classes()).not.toContain('is-today')
+    expect(squares[2]!.classes()).not.toContain('is-today')
+  })
+})

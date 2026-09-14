@@ -131,6 +131,7 @@ onMounted(load)
           :days="habit.days"
           :unit="habit.unit"
           :weeks="habit.weeks"
+          :today="data.today"
         />
       </article>
     </template>
