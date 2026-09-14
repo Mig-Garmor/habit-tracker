@@ -52,10 +52,31 @@
   }
 
   &__day {
-    @apply block rounded-sm transition-colors;
+    /* `relative` on the base, not on the marker classes: both the note border
+       and the today dot are positioned children, and a square can be both. */
+    @apply relative block rounded-sm transition-colors;
     width: var(--day-size);
     height: var(--day-size);
     background-color: hsl(var(--muted));
+
+    /* The colour of anything drawn ON a square — the note border and the today
+       dot both use it, so the two marks can never disagree about what is
+       legible against the shade underneath them.
+
+       Measured against what each level composites to on the page:
+
+         level-0 (244,244,245)  white 1.10  grey 4.40   <- grey
+         level-1 (197,197,198)  white 1.72  grey 2.82   <- grey
+         level-2 (139,139,141)  white 3.43  grey 1.43   <- white
+
+       So marks are grey on the two pale ends and white from level-2 up, where
+       the shade is dark enough to hold them. */
+    --mark: hsl(var(--background));
+
+    &.is-level-0,
+    &.is-level-1 {
+      --mark: hsl(var(--muted-foreground));
+    }
 
     &:hover {
       @apply ring-1 ring-ring;
@@ -72,12 +93,21 @@
       @apply outline-none ring-1 ring-ring;
     }
 
-    /* A ring, not a colour: shading already means "how much", and overloading
-       it would make a noted day read as a bigger day. The ring says only that
-       there is something written here. */
-    &.has-note {
-      @apply ring-1;
-      --tw-ring-color: hsl(var(--foreground) / 0.45);
+    /* A border inside the square, not a ring around it.
+
+       The intent was always "not a colour — shading already means how much,
+       and overloading it would make a noted day read as a bigger day". A ring
+       did exactly that anyway: `ring-1` paints 1px OUTSIDE the element, so a
+       noted square covered 14px against its neighbours' 12px and read as
+       bigger and outlined, which is what it was written to avoid.
+
+       Drawn on a pseudo-element rather than as a box-shadow so that hover and
+       focus keep the box-shadow to themselves — a noted square can still show
+       it is being pointed at. */
+    &.has-note::before {
+      content: '';
+      @apply absolute inset-0 rounded-sm;
+      border: 1px solid var(--mark);
     }
 
     /* A day that has not arrived yet: the same fill, lighter. No outline —
@@ -102,8 +132,6 @@
        else uses, and it cannot be confused with shading because it is the one
        mark that gets LIGHTER as the square gets darker. */
     &.is-today {
-      @apply relative;
-
       &::after {
         content: '';
         @apply absolute rounded-full;
@@ -112,23 +140,8 @@
         width: var(--today-dot);
         height: var(--today-dot);
         transform: translate(-50%, -50%);
-        background-color: hsl(var(--background));
+        background-color: var(--mark);
       }
-    }
-
-    /* The two lightest squares cannot carry a white dot. Measured against what
-       each actually composites to on the page:
-
-         level-0 (244,244,245)  white 1.10  grey 4.40   <- grey
-         level-1 (197,197,198)  white 1.72  grey 2.82   <- grey
-         level-2 (139,139,141)  white 3.43  grey 1.43   <- white
-
-       So the dot is grey on the two pale ends and white from level-2 up, where
-       the shade is dark enough to hold it. level-0 is the case that matters
-       most: you look for today precisely when you have not logged it yet. */
-    &.is-today.is-level-0::after,
-    &.is-today.is-level-1::after {
-      background-color: hsl(var(--muted-foreground));
     }
 
     &.is-level-1 { background-color: hsl(var(--primary) / 0.25); }
