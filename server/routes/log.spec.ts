@@ -239,9 +239,42 @@ describe('GET /api/dashboard', () => {
 
     for (const habit of body.habits) {
       expect(habit.days[0]!.date).toBe(body.from)
-      expect(habit.days.at(-1)!.date).toBe(todayKey)
+      // The grid no longer stops at today — it runs on to the end of a week
+      // several weeks out, so today's square sits partway across it.
+      expect(habit.days.at(-1)!.date > todayKey).toBe(true)
       expect(habit.days.every(d => d.level >= 0 && d.level <= 4)).toBe(true)
     }
+  })
+
+  it('draws whole weeks, ending on a Sunday well past today', async () => {
+    const { endOfWeek, startOfWeek } = await import('../lib/date.js')
+    const body = await readJson<DashboardResponse>(app.request('/api/dashboard', { headers: { cookie } }))
+    const days = body.habits[0]!.days
+
+    expect(days[0]!.date).toBe(startOfWeek(days[0]!.date))
+    expect(days.at(-1)!.date).toBe(endOfWeek(days.at(-1)!.date))
+    expect(days.length % 7).toBe(0)
+  })
+
+  it('flags exactly the days after today, and never today itself', async () => {
+    const body = await readJson<DashboardResponse>(app.request('/api/dashboard', { headers: { cookie } }))
+    const days = body.habits[0]!.days
+
+    // The flag is what stops an unlived day being drawn as a missed one.
+    expect(days.find(d => d.date === todayKey)!.future).toBe(false)
+    expect(days.every(d => d.future === d.date > todayKey)).toBe(true)
+    expect(days.some(d => d.future)).toBe(true)
+  })
+
+  it('keeps today about two thirds of the way across the default grid', async () => {
+    const { startOfWeek } = await import('../lib/date.js')
+    const body = await readJson<DashboardResponse>(app.request('/api/dashboard', { headers: { cookie } }))
+    const columns = body.habits[0]!.days.length / 7
+    const todaysColumn = body.habits[0]!.days.findIndex(d => d.date === startOfWeek(todayKey)) / 7
+
+    // 15 columns with today's week tenth: the point of drawing past today.
+    expect(columns).toBe(15)
+    expect(todaysColumn).toBe(9)
   })
 
   it('clamps an absurd weeks value', async () => {

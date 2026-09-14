@@ -2,8 +2,8 @@ import { asc, eq } from 'drizzle-orm'
 import { Hono } from 'hono'
 import { db } from '../db/client.js'
 import { habitEntries, habits } from '../db/schema.js'
-import { buildDashboard } from '../lib/dashboard.js'
-import { lastNWeekStarts, today } from '../lib/date.js'
+import { buildDashboard, dashboardRange } from '../lib/dashboard.js'
+import { today } from '../lib/date.js'
 
 export const dashboardRoutes = new Hono()
 
@@ -17,9 +17,10 @@ dashboardRoutes.get('/', async c => {
     : DEFAULT_WEEKS
 
   const todayKey = today()
-  // Grids start on a week boundary so columns are whole weeks — `startOfWeek`
-  // is the only notion of a week, so this walks Mondays rather than days.
-  const from = lastNWeekStarts(weeks, todayKey)[0]!
+  // Both ends land on a week boundary so every column is a whole week, and the
+  // range runs past today — today's square sits about two thirds across rather
+  // than at the right edge, with the week ahead visible behind it.
+  const { from, to } = dashboardRange(todayKey, weeks)
 
   const active = await db
     .select()
@@ -28,10 +29,10 @@ dashboardRoutes.get('/', async c => {
     .orderBy(asc(habits.position), asc(habits.id))
 
   // currentStreak has no depth cap, so a fetch window would truncate a long
-  // streak (R10). buildDashboard's `days` still only spans
-  // dateRange(from, today), and completionRate applies its own bounded
-  // window internally — only the streak needs full history.
+  // streak (R10). buildDashboard's `days` still only spans dateRange(from, to),
+  // and completionRate applies its own bounded window internally — only the
+  // streak needs full history.
   const entries = await db.select().from(habitEntries)
 
-  return c.json(buildDashboard(active, entries, from, todayKey))
+  return c.json(buildDashboard(active, entries, from, todayKey, to))
 })
