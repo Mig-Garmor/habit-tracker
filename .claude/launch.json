@@ -2,10 +2,19 @@
   "version": "0.0.1",
   "configurations": [
     {
+      // Attach-mode: no command, so this connects to an already-running
+      // `pnpm dev` rather than starting a second one.
+      //
+      // `pnpm dev` runs BOTH halves (run-p dev:api dev:web) — Vite on 5173 and
+      // the Hono API on 5174 — so spawning a duplicate collides on both ports.
+      //
+      // autoPort must stay false: 5173 is pinned in vite.config.ts and is a
+      // registered Google OAuth JavaScript origin, so sign-in breaks on any
+      // other port. Start the server yourself with `pnpm dev` if it isn't up.
       "name": "habit-tracker",
-      "runtimeExecutable": "pnpm",
-      "runtimeArgs": ["dev"],
-      "port": 5173
+      "url": "http://localhost:5173",
+      "port": 5173,
+      "autoPort": false
     }
   ]
 }
