@@ -21,7 +21,17 @@
   }
 
   &__scroll {
-    @apply overflow-x-auto pb-1;
+    /* Padding on every side, not just the bottom.
+
+       `overflow-x: auto` forces `overflow-y` to compute to `auto` as well, so
+       this box clips on all four edges — and the first square sits at offset 0
+       from the top and left. Every ring the squares can draw (hover, focus,
+       `has-note`) paints 1px outside the square, so on the top row and the
+       first column it was being sliced off against the edge.
+
+       The bottom already had `pb-1` for exactly this reason; the other three
+       sides needed the same. */
+    @apply overflow-x-auto p-1;
   }
 
   &__weeks {
