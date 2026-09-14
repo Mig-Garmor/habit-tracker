@@ -51,8 +51,15 @@
       @apply ring-1 ring-ring;
     }
 
+    /* 1px, matching hover. At 2px the ring was thicker than the gap between
+       squares, so a focused square bled into its neighbours and read as a
+       blot rather than an outline — most visible on today, which is the
+       square people actually click.
+
+       It stays a ring rather than becoming nothing: `outline-none` above
+       means this is the only focus indicator there is. */
     &:focus-visible {
-      @apply outline-none ring-2 ring-ring;
+      @apply outline-none ring-1 ring-ring;
     }
 
     /* A ring, not a colour: shading already means "how much", and overloading
