@@ -40,9 +40,28 @@ vi.mock('@/lib/api', () => ({
   updateHabit: vi.fn(),
 }))
 
+/**
+ * The grid's squares are RouterLinks, and there is no router here. Stubbing it
+ * as a real anchor keeps the question this file asks about them — which days
+ * link to the log and which do not — answerable from the rendered href.
+ */
+const RouterLinkStub = {
+  props: ['to'],
+  computed: {
+    href(): string {
+      const to = (this as unknown as { to: string | { path: string, query: { date: string } } }).to
+      return typeof to === 'string' ? to : `${to.path}?date=${to.query.date}`
+    },
+  },
+  template: '<a :href="href"><slot /></a>',
+}
+
 async function mountPage() {
   const IndexPage = (await import('./index.vue')).default
-  const wrapper = mount(IndexPage, { attachTo: document.body })
+  const wrapper = mount(IndexPage, {
+    attachTo: document.body,
+    global: { stubs: { RouterLink: RouterLinkStub } },
+  })
   await flushPromises()
   return wrapper
 }
@@ -126,5 +145,51 @@ describe('the compact habit row', () => {
     const name = wrapper.find('.dashboard__habit-name')
     expect(name.text()).toBe('Record one…')
     expect(name.attributes('title')).toBe('Record one video')
+  })
+})
+
+/**
+ * The grid now draws past today so today's square sits about two thirds across
+ * instead of at the right edge. That makes the two kinds of empty square mean
+ * different things, and the difference is not decorative:
+ *
+ * `server/routes/log.ts` rejects a future day with "Cannot log a future day",
+ * and log.vue caps its Next button at today. A future square rendered as a
+ * link would therefore walk someone into a page that refuses to save.
+ */
+describe('the days ahead of today', () => {
+  const day = (date: string, future: boolean) =>
+    ({ date, completed: false, value: null, note: null, level: 0 as const, future })
+
+  async function mountGrid() {
+    return mountWith({
+      days: [day('2026-09-12', false), day('2026-09-13', false), day('2026-09-14', true)],
+    })
+  }
+
+  it('does not link a future day to the log, which would refuse to save it', async () => {
+    const wrapper = await mountGrid()
+    const hrefs = wrapper.findAll('a').map(a => a.attributes('href'))
+    expect(hrefs).toContain('/log?date=2026-09-13')
+    expect(hrefs).not.toContain('/log?date=2026-09-14')
+  })
+
+  it('still draws the future day, so the grid keeps its full width', async () => {
+    const wrapper = await mountGrid()
+    expect(wrapper.findAll('.activity-grid__day')).toHaveLength(3)
+  })
+
+  it('marks it as future so it does not read as a day that was missed', async () => {
+    const wrapper = await mountGrid()
+    const squares = wrapper.findAll('.activity-grid__day')
+    expect(squares[1]!.classes()).not.toContain('is-future')
+    expect(squares[2]!.classes()).toContain('is-future')
+  })
+
+  it('says nothing has happened yet, rather than that nothing was logged', async () => {
+    const wrapper = await mountGrid()
+    const future = wrapper.findAll('.activity-grid__day')[2]!
+    expect(future.attributes('title')).toBe('2026-09-14 — still to come')
+    expect(future.attributes('title')).not.toContain('nothing logged')
   })
 })

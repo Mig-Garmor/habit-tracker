@@ -29,6 +29,11 @@ function isMet(column: DashboardDay[]): boolean {
 }
 
 function describe(day: DashboardDay): string {
+  // A day that has not arrived has not been missed. Calling it "nothing
+  // logged" — the wording for every other empty square — would report a
+  // failure that has not had the chance to happen.
+  if (day.future) return `${day.date} — still to come`
+
   const what = !day.completed
     ? 'nothing logged'
     : day.value !== null
@@ -50,15 +55,26 @@ function describe(day: DashboardDay): string {
           class="activity-grid__week"
           :class="{ 'activity-grid__week--met': isMet(column) }"
         >
-          <RouterLink
-            v-for="day in column"
-            :key="day.date"
-            :to="{ path: '/log', query: { date: day.date } }"
-            class="activity-grid__day"
-            :class="[`is-level-${day.level}`, { 'has-note': Boolean(day.note) }]"
-            :title="describe(day)"
-            :aria-label="describe(day)"
-          />
+          <template v-for="day in column" :key="day.date">
+            <!--
+              Deliberately not a RouterLink. The API refuses a future day
+              ("Cannot log a future day"), so linking one would offer a
+              destination that cannot accept what it invites.
+            -->
+            <span
+              v-if="day.future"
+              class="activity-grid__day is-future"
+              :title="describe(day)"
+            />
+            <RouterLink
+              v-else
+              :to="{ path: '/log', query: { date: day.date } }"
+              class="activity-grid__day"
+              :class="[`is-level-${day.level}`, { 'has-note': Boolean(day.note) }]"
+              :title="describe(day)"
+              :aria-label="describe(day)"
+            />
+          </template>
         </div>
       </div>
     </div>

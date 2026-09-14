@@ -1,7 +1,7 @@
 import {
   classifyHealth, completionRate, currentStreak, summariseWeeks, type Health, type WeekSummary,
 } from './consistency.js'
-import { dateRange, weekStartsInRange } from './date.js'
+import { dateRange, endOfWeek, lastNWeekStarts, nextWeek, startOfWeek, weekStartsInRange } from './date.js'
 import { activityLevel, type ActivityLevel } from './level.js'
 
 export interface DashboardHabitInput {
@@ -30,6 +30,12 @@ export interface DashboardDay {
   value: number | null
   note: string | null
   level: ActivityLevel
+  /**
+   * A date the grid draws but nobody could have logged yet. Sent rather than
+   * derived so the client keeps rendering values instead of recomputing them —
+   * and because an empty future square must not read as a missed day.
+   */
+  future: boolean
 }
 
 export interface DashboardHabit extends DashboardHabitInput {
@@ -54,17 +60,53 @@ export interface DashboardResponse {
 }
 
 /**
+ * How many whole weeks the grid draws AHEAD of today.
+ *
+ * Five of fifteen columns puts today's week tenth — about two thirds across —
+ * so the grid shows a run-up and a runway instead of ending abruptly at today.
+ */
+export const FUTURE_WEEKS = 5
+
+/**
+ * The week-aligned range the grid draws for `weeks` columns ending `FUTURE_WEEKS`
+ * beyond today.
+ *
+ * `weeks` stays the TOTAL column count, as it always was, so the grid's width
+ * is unchanged and the future columns are bought out of history rather than
+ * added on top. That is deliberate: widening the grid would take ~76px from
+ * the text column beside it, and on a 375px phone that column is already the
+ * tighter of the two.
+ */
+export function dashboardRange(today: string, weeks: number): { from: string, to: string } {
+  // At least one week of history, however few columns were asked for —
+  // otherwise `to` precedes `from` and the grid comes back empty.
+  const past = Math.max(1, weeks - FUTURE_WEEKS)
+
+  let lastWeek = startOfWeek(today)
+  for (let i = 0; i < FUTURE_WEEKS; i++) lastWeek = nextWeek(lastWeek)
+
+  return { from: lastNWeekStarts(past, today)[0]!, to: endOfWeek(lastWeek) }
+}
+
+/**
  * Turns habit and entry rows into the dashboard payload: one dense day per date
  * in the range, each already shaded, plus health, streak and rate. The client
  * renders these values and never recomputes them.
+ *
+ * `to` and `today` are deliberately separate. `to` is where the DRAWING stops
+ * and may sit weeks in the future, so today's square lands partway across the
+ * grid instead of at its right edge. `today` is where the SCORING stops, and
+ * every streak, rate and health call below still anchors on it — lengthening
+ * the grid must never dilute a score with weeks nobody has lived through.
  */
 export function buildDashboard(
   habits: DashboardHabitInput[],
   entries: DashboardEntryInput[],
   from: string,
   today: string,
+  to: string,
 ): DashboardResponse {
-  const dates = dateRange(from, today)
+  const dates = dateRange(from, to)
 
   const byHabit = new Map<number, Map<string, DashboardEntryInput>>()
   for (const entry of entries) {
@@ -87,6 +129,7 @@ export function buildDashboard(
         value: entry?.value ?? null,
         note: entry?.note ?? null,
         level: activityLevel(habit, entry ?? null),
+        future: date > today,
       }
     })
 
@@ -105,7 +148,7 @@ export function buildDashboard(
       // newest few columns, which now reads as "the rest failed" (D-23).
       // Scoring keeps using weekSummaries/completionRate; this is display only.
       weeks: habit.activatedAt
-        ? summariseWeeks(completedDates, weekStartsInRange(from, today), habit.timesPerWeek)
+        ? summariseWeeks(completedDates, weekStartsInRange(from, to), habit.timesPerWeek)
         : [],
     }
   })

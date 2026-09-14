@@ -65,6 +65,16 @@ export function startOfWeek(dateKey: string): string {
   return cursor
 }
 
+/**
+ * The Sunday that closes the week containing `dateKey`. The dashboard's grid
+ * now runs past today to the end of a future week, so its range needs a
+ * week-aligned END the way it already had a week-aligned start — a column is
+ * only a whole week if both edges land on one.
+ */
+export function endOfWeek(dateKey: string): string {
+  return weekDays(startOfWeek(dateKey))[6]!
+}
+
 /** The seven days of the week beginning `weekStart`, Monday first. */
 export function weekDays(weekStart: string): string[] {
   const days = [weekStart]

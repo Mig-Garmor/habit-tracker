@@ -59,6 +59,20 @@
       --tw-ring-color: hsl(var(--foreground) / 0.45);
     }
 
+    /* A day that has not arrived yet: the same fill, lighter. No outline —
+       a square that recedes reads as "not yet" without drawing a border's
+       worth of attention to the part of the grid nothing has happened in.
+
+       Not interactive, so it takes none of the hover or focus treatment. */
+    &.is-future {
+      background-color: hsl(var(--muted) / 0.45);
+      cursor: default;
+
+      &:hover {
+        @apply ring-0;
+      }
+    }
+
     &.is-level-1 { background-color: hsl(var(--primary) / 0.25); }
     &.is-level-2 { background-color: hsl(var(--primary) / 0.5); }
     &.is-level-3 { background-color: hsl(var(--primary) / 0.75); }

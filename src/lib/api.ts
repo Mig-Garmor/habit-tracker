@@ -24,6 +24,8 @@ export interface DashboardDay {
   value: number | null
   note: string | null
   level: ActivityLevel
+  /** A day the grid draws but nobody could have logged yet. Never a missed day. */
+  future: boolean
 }
 
 export interface DashboardWeek {

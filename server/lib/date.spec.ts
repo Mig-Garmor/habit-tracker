@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { dateRange, isValidDateKey, isWeekComplete, lastNDays, lastNWeekStarts, nextDay, nextWeek, previousDay, previousWeek, startOfWeek, toDateKey, weekDays, weekStartsInRange } from './date.js'
+import { dateRange, isValidDateKey, isWeekComplete, lastNDays, lastNWeekStarts, nextDay, nextWeek, previousDay, previousWeek, startOfWeek, toDateKey, weekDays, weekStartsInRange, endOfWeek } from './date.js'
 
 describe('toDateKey', () => {
   it('formats a local date as YYYY-MM-DD', () => {
@@ -209,5 +209,23 @@ describe('weekStartsInRange', () => {
   it('snaps both ends to their own Monday, not just the first', () => {
     // upTo is a Sunday; its week (starting 2026-09-07) must still be included.
     expect(weekStartsInRange('2026-09-07', '2026-09-13')).toEqual(['2026-09-07'])
+  })
+})
+
+describe('endOfWeek', () => {
+  it('returns the Sunday that closes the week containing the date', () => {
+    expect(endOfWeek('2026-09-09')).toBe('2026-09-13')
+  })
+
+  it('leaves a Sunday where it is', () => {
+    expect(endOfWeek('2026-09-13')).toBe('2026-09-13')
+  })
+
+  it('closes the week a Monday opens', () => {
+    expect(endOfWeek('2026-09-07')).toBe('2026-09-13')
+  })
+
+  it('crosses a month boundary', () => {
+    expect(endOfWeek('2026-09-30')).toBe('2026-10-04')
   })
 })
