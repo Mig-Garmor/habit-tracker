@@ -2,7 +2,17 @@
 import { computed } from 'vue'
 import type { DashboardDay, DashboardWeek } from '@/lib/api'
 
-const props = defineProps<{ days: DashboardDay[], unit: string | null, weeks?: DashboardWeek[] }>()
+const props = defineProps<{
+  days: DashboardDay[]
+  unit: string | null
+  weeks?: DashboardWeek[]
+  /**
+   * The server's idea of today, taken from the dashboard payload rather than
+   * the browser clock — a device an hour ahead would otherwise mark the wrong
+   * square, and every other date in this grid came from the server.
+   */
+  today?: string
+}>()
 
 /**
  * Columns of seven, oldest first. The server already starts the range on a
@@ -70,7 +80,10 @@ function describe(day: DashboardDay): string {
               v-else
               :to="{ path: '/log', query: { date: day.date } }"
               class="activity-grid__day"
-              :class="[`is-level-${day.level}`, { 'has-note': Boolean(day.note) }]"
+              :class="[
+                `is-level-${day.level}`,
+                { 'has-note': Boolean(day.note), 'is-today': day.date === today },
+              ]"
               :title="describe(day)"
               :aria-label="describe(day)"
             />

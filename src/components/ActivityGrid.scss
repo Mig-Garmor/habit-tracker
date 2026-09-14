@@ -7,6 +7,7 @@
      bigger here than when everything stacked, and still fit six on a screen. */
   --day-size: 0.75rem;
   --day-gap: 0.125rem;
+  --today-dot: 0.25rem;
 
   /* Smaller on a phone, where the grid shares 375px with the text column.
      Desktop keeps the original 12px: putting the text beside the grid, rather
@@ -14,6 +15,9 @@
   @media (max-width: 640px) {
     --day-size: 0.5rem;
     --day-gap: 0.09375rem;
+    /* 3px in an 8px square. A 4px dot here would be half the square and read
+       as a filled cell rather than a mark on one. */
+    --today-dot: 0.1875rem;
   }
 
   &__scroll {
@@ -71,6 +75,43 @@
       &:hover {
         @apply ring-0;
       }
+    }
+
+    /* Today, marked from the inside.
+
+       A ring around the square was the obvious move and the grid cannot afford
+       one: outlines already mean "has a note" and "has focus" here, and a third
+       would be one more thing to tell apart at 8px. A dot sits in space nothing
+       else uses, and it cannot be confused with shading because it is the one
+       mark that gets LIGHTER as the square gets darker. */
+    &.is-today {
+      @apply relative;
+
+      &::after {
+        content: '';
+        @apply absolute rounded-full;
+        top: 50%;
+        left: 50%;
+        width: var(--today-dot);
+        height: var(--today-dot);
+        transform: translate(-50%, -50%);
+        background-color: hsl(var(--background));
+      }
+    }
+
+    /* The two lightest squares cannot carry a white dot. Measured against what
+       each actually composites to on the page:
+
+         level-0 (244,244,245)  white 1.10  grey 4.40   <- grey
+         level-1 (197,197,198)  white 1.72  grey 2.82   <- grey
+         level-2 (139,139,141)  white 3.43  grey 1.43   <- white
+
+       So the dot is grey on the two pale ends and white from level-2 up, where
+       the shade is dark enough to hold it. level-0 is the case that matters
+       most: you look for today precisely when you have not logged it yet. */
+    &.is-today.is-level-0::after,
+    &.is-today.is-level-1::after {
+      background-color: hsl(var(--muted-foreground));
     }
 
     &.is-level-1 { background-color: hsl(var(--primary) / 0.25); }
