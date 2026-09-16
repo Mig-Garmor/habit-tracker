@@ -59,9 +59,9 @@
     height: var(--day-size);
     background-color: hsl(var(--muted));
 
-    /* The colour of anything drawn ON a square — the note border and the today
-       dot both use it, so the two marks can never disagree about what is
-       legible against the shade underneath them.
+    /* The note border's colour. A note is a fact about the day that stays true
+       however much of the day got done, so this one has to stay legible at
+       every shade — unlike the today dot below, which is meant to fade out.
 
        Measured against what each level composites to on the page:
 
@@ -69,8 +69,8 @@
          level-1 (197,197,198)  white 1.72  grey 2.82   <- grey
          level-2 (139,139,141)  white 3.43  grey 1.43   <- white
 
-       So marks are grey on the two pale ends and white from level-2 up, where
-       the shade is dark enough to hold them. */
+       So the border is grey on the two pale ends and white from level-2 up,
+       where the shade is dark enough to hold it. */
     --mark: hsl(var(--background));
 
     &.is-level-0,
@@ -140,7 +140,18 @@
         width: var(--today-dot);
         height: var(--today-dot);
         transform: translate(-50%, -50%);
-        background-color: var(--mark);
+        /* Always the colour a finished day fills with — never a light mark on
+           a dark square.
+
+           That makes the dot fade as the day fills in, and vanish entirely
+           once the day is complete: 15.5:1 against an untouched square, 2.2:1
+           at level 3, and gone at level 4 where it matches the fill exactly.
+
+           Which is the point. The dot answers "is today still waiting on
+           me?", so a finished day has nothing to answer. Flipping it white
+           there did the opposite — it made the one square needing no
+           attention the highest-contrast thing on the row. */
+        background-color: hsl(var(--primary));
       }
     }
 
