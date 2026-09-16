@@ -233,3 +233,81 @@ describe('marking today', () => {
     expect(squares[2]!.classes()).not.toContain('is-today')
   })
 })
+
+/**
+ * The dashboard's job first thing in the morning is "what is left today", and
+ * it could not answer that: a habit already logged looked exactly like one
+ * that was not, so the answer had to be read out of fifteen columns of grid.
+ *
+ * Both halves are derived on the client from the payload it already receives.
+ * Today's own day row carries `completed`, so there is nothing to infer from a
+ * last-completed date, and no new field was added to the API for this.
+ */
+describe('habits done today', () => {
+  function dayRow(date: string, completed: boolean): DashboardHabit['days'][number] {
+    return { date, completed, value: null, note: null, level: completed ? 3 : 0, future: false }
+  }
+
+  /** A habit whose today (2026-09-13) is logged or not. */
+  function withToday(id: number, name: string, done: boolean): DashboardHabit {
+    return habit({
+      id,
+      name,
+      days: [dayRow('2026-09-12', false), dayRow('2026-09-13', done)],
+    })
+  }
+
+  async function mountList(habits: DashboardHabit[]) {
+    dashboard = { today: '2026-09-13', from: '2026-09-07', habits, warnings: [] }
+    return mountPage()
+  }
+
+  const names = (wrapper: Awaited<ReturnType<typeof mountPage>>) =>
+    wrapper.findAll('.dashboard__habit-name').map(n => n.text())
+
+  it('ticks a habit that has been logged today', async () => {
+    const wrapper = await mountList([withToday(1, 'Exercise', true)])
+    expect(wrapper.find('.dashboard__habit-tick').exists()).toBe(true)
+  })
+
+  it('does not tick one that has not', async () => {
+    const wrapper = await mountList([withToday(1, 'Exercise', false)])
+    expect(wrapper.find('.dashboard__habit-tick').exists()).toBe(false)
+  })
+
+  it('treats a habit with no row for today as still to do', async () => {
+    // A day nobody has touched has no entry at all, which is not the same
+    // shape as an entry saying `completed: false`.
+    const wrapper = await mountList([habit({ id: 1, name: 'Exercise', days: [dayRow('2026-09-12', true)] })])
+    expect(wrapper.find('.dashboard__habit-tick').exists()).toBe(false)
+  })
+
+  it('lists what is still to do before what is done', async () => {
+    const wrapper = await mountList([
+      withToday(1, 'Done one', true),
+      withToday(2, 'Still to do', false),
+    ])
+    expect(names(wrapper)).toEqual(['Still to do', 'Done one'])
+  })
+
+  it('keeps the habits own order within each group', async () => {
+    // The order habits arrive in is the one dragged on /habits and stored as
+    // `position`. Grouping must not quietly re-sort inside a group.
+    const wrapper = await mountList([
+      withToday(1, 'Done first', true),
+      withToday(2, 'Todo first', false),
+      withToday(3, 'Done second', true),
+      withToday(4, 'Todo second', false),
+    ])
+    expect(names(wrapper)).toEqual(['Todo first', 'Todo second', 'Done first', 'Done second'])
+  })
+
+  it('ticks only the habits that are actually done', async () => {
+    const wrapper = await mountList([
+      withToday(1, 'Done one', true),
+      withToday(2, 'Still to do', false),
+      withToday(3, 'Done two', true),
+    ])
+    expect(wrapper.findAll('.dashboard__habit-tick')).toHaveLength(2)
+  })
+})

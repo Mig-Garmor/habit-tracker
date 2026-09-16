@@ -23,8 +23,20 @@
     @apply flex min-w-0 flex-1 flex-col gap-0.5;
   }
 
+  &__habit-heading {
+    /* min-w-0 so the name's truncation still engages next to the tick, and
+       shrink-0 on the tick so the name gives up the space, never the mark. */
+    @apply flex min-w-0 items-center gap-1.5;
+  }
+
   &__habit-name {
     @apply truncate text-sm font-semibold;
+  }
+
+  &__habit-tick {
+    /* Sized in the stylesheet, not by the icon's own attributes: lucide ships
+       24px, which would be twice the line it sits on. */
+    @apply size-3.5 shrink-0 text-primary;
   }
 
   &__habit-facts {
