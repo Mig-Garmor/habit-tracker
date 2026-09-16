@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
-import { Check } from 'lucide-vue-next'
 import ActivityGrid from '@/components/ActivityGrid.vue'
 import HealthPill from '@/components/HealthPill.vue'
 import { isTruncated, truncateName } from '@/lib/truncate'
@@ -142,26 +141,18 @@ onMounted(load)
         the row shorter, because its height becomes the taller of the two
         rather than their sum.
       -->
-      <article v-for="habit in orderedHabits" :key="habit.id" class="dashboard__habit">
+      <article
+        v-for="habit in orderedHabits"
+        :key="habit.id"
+        class="dashboard__habit"
+        :class="{ 'dashboard__habit--done': doneToday(habit) }"
+      >
         <!--
-          A badge in the corner, not a mark beside the name. Colour is what
-          makes this readable without looking directly at it, and a black tick
-          in a column of black text is not something peripheral vision finds —
-          it has to be read. This is the one place in the app where colour
-          carries meaning rather than depth.
-
-          It sits over the grid's top-right corner, which is always the
-          furthest future week: those squares are empty by definition, so the
-          badge covers no information at any point in time.
+          Done is carried by dimness and by position in the list, and neither
+          reaches a screen reader. This is the only thing that says it out
+          loud, so it stays even though nothing renders it.
         -->
-        <span
-          v-if="doneToday(habit)"
-          class="dashboard__habit-done"
-          role="img"
-          aria-label="Done today"
-        >
-          <Check class="dashboard__habit-done-tick" />
-        </span>
+        <span v-if="doneToday(habit)" class="sr-only">Done today</span>
 
         <div class="dashboard__habit-info">
           <h2 class="dashboard__habit-name" :title="isTruncated(habit.name) ? habit.name : undefined">
