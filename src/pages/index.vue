@@ -143,23 +143,30 @@ onMounted(load)
         rather than their sum.
       -->
       <article v-for="habit in orderedHabits" :key="habit.id" class="dashboard__habit">
+        <!--
+          A badge in the corner, not a mark beside the name. Colour is what
+          makes this readable without looking directly at it, and a black tick
+          in a column of black text is not something peripheral vision finds —
+          it has to be read. This is the one place in the app where colour
+          carries meaning rather than depth.
+
+          It sits over the grid's top-right corner, which is always the
+          furthest future week: those squares are empty by definition, so the
+          badge covers no information at any point in time.
+        -->
+        <span
+          v-if="doneToday(habit)"
+          class="dashboard__habit-done"
+          role="img"
+          aria-label="Done today"
+        >
+          <Check class="dashboard__habit-done-tick" />
+        </span>
+
         <div class="dashboard__habit-info">
-          <!--
-            The tick sits beside the name rather than inside it: the name
-            truncates, and a tick inside would be the first thing an ellipsis
-            ate on a long habit.
-          -->
-          <div class="dashboard__habit-heading">
-            <h2 class="dashboard__habit-name" :title="isTruncated(habit.name) ? habit.name : undefined">
-              {{ truncateName(habit.name) }}
-            </h2>
-            <Check
-              v-if="doneToday(habit)"
-              class="dashboard__habit-tick"
-              role="img"
-              aria-label="Done today"
-            />
-          </div>
+          <h2 class="dashboard__habit-name" :title="isTruncated(habit.name) ? habit.name : undefined">
+            {{ truncateName(habit.name) }}
+          </h2>
           <!--
             A display affordance, not a calculation (D-26 is about the latter —
             no scoring path branches on daily). "Daily" is what a person calls

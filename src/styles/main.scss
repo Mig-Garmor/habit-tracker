@@ -23,6 +23,11 @@
     --accent-foreground: 240 5.9% 10%;
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 0 0% 98%;
+    /* The only colour in the app that carries meaning rather than depth.
+       Green-600 rather than green-500: the done badge is 20px with a white
+       tick inside it, and the lighter green does not hold white at that size. */
+    --success: 142.1 76.2% 36.3%;
+    --success-foreground: 0 0% 98%;
     --border: 240 5.9% 90%;
     --input: 240 5.9% 90%;
     --ring: 240 10% 3.9%;
@@ -51,6 +56,8 @@
     --accent-foreground: 0 0% 98%;
     --destructive: 0 62.8% 30.6%;
     --destructive-foreground: 0 0% 98%;
+    --success: 142.1 70.6% 45.3%;
+    --success-foreground: 0 0% 98%;
     --border: 240 3.7% 15.9%;
     --input: 240 3.7% 15.9%;
     --ring: 240 4.9% 83.9%;

@@ -267,19 +267,19 @@ describe('habits done today', () => {
 
   it('ticks a habit that has been logged today', async () => {
     const wrapper = await mountList([withToday(1, 'Exercise', true)])
-    expect(wrapper.find('.dashboard__habit-tick').exists()).toBe(true)
+    expect(wrapper.find('.dashboard__habit-done').exists()).toBe(true)
   })
 
   it('does not tick one that has not', async () => {
     const wrapper = await mountList([withToday(1, 'Exercise', false)])
-    expect(wrapper.find('.dashboard__habit-tick').exists()).toBe(false)
+    expect(wrapper.find('.dashboard__habit-done').exists()).toBe(false)
   })
 
   it('treats a habit with no row for today as still to do', async () => {
     // A day nobody has touched has no entry at all, which is not the same
     // shape as an entry saying `completed: false`.
     const wrapper = await mountList([habit({ id: 1, name: 'Exercise', days: [dayRow('2026-09-12', true)] })])
-    expect(wrapper.find('.dashboard__habit-tick').exists()).toBe(false)
+    expect(wrapper.find('.dashboard__habit-done').exists()).toBe(false)
   })
 
   it('lists what is still to do before what is done', async () => {
@@ -302,12 +302,21 @@ describe('habits done today', () => {
     expect(names(wrapper)).toEqual(['Todo first', 'Todo second', 'Done first', 'Done second'])
   })
 
+  it('names the badge, which carries no text of its own', async () => {
+    // The badge is a coloured circle and an icon. Without this it announces
+    // nothing at all, and "done" is the only thing it says.
+    const wrapper = await mountList([withToday(1, 'Exercise', true)])
+    const badge = wrapper.find('.dashboard__habit-done')
+    expect(badge.attributes('aria-label')).toBe('Done today')
+    expect(badge.attributes('role')).toBe('img')
+  })
+
   it('ticks only the habits that are actually done', async () => {
     const wrapper = await mountList([
       withToday(1, 'Done one', true),
       withToday(2, 'Still to do', false),
       withToday(3, 'Done two', true),
     ])
-    expect(wrapper.findAll('.dashboard__habit-tick')).toHaveLength(2)
+    expect(wrapper.findAll('.dashboard__habit-done')).toHaveLength(2)
   })
 })

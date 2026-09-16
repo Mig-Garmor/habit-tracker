@@ -10,7 +10,8 @@
     /* Row, not column: the height becomes the taller of the text and the grid
        rather than their sum, which is what makes six fit while letting the
        squares get BIGGER than the one-line version allowed. */
-    @apply flex items-center gap-2 rounded-lg border p-2;
+    /* `relative` so the done badge can sit in the corner. */
+    @apply relative flex items-center gap-2 rounded-lg border p-2;
 
     @screen sm {
       @apply gap-3 p-3;
@@ -23,20 +24,30 @@
     @apply flex min-w-0 flex-1 flex-col gap-0.5;
   }
 
-  &__habit-heading {
-    /* min-w-0 so the name's truncation still engages next to the tick, and
-       shrink-0 on the tick so the name gives up the space, never the mark. */
-    @apply flex min-w-0 items-center gap-1.5;
-  }
-
   &__habit-name {
     @apply truncate text-sm font-semibold;
   }
 
-  &__habit-tick {
-    /* Sized in the stylesheet, not by the icon's own attributes: lucide ships
-       24px, which would be twice the line it sits on. */
-    @apply size-3.5 shrink-0 text-primary;
+  &__habit-done {
+    /* Out of the flex flow entirely, so a ticked card and an unticked one are
+       laid out identically — nothing shifts as habits are completed.
+
+       The ring is the card's own background, which lifts the badge off the
+       activity squares behind it instead of letting its edge blend into
+       them. */
+    @apply absolute right-2 top-2 flex size-5 items-center justify-center rounded-full;
+    @apply bg-success text-success-foreground ring-2 ring-card;
+
+    @screen sm {
+      @apply right-3 top-3;
+    }
+  }
+
+  &__habit-done-tick {
+    /* Sized here, not by the icon's own attributes: lucide ships 24px, which
+       would overflow a 20px badge. stroke-[3] because a 14px tick at the
+       default weight reads as grey rather than white once it is this small. */
+    @apply size-3.5 stroke-[3];
   }
 
   &__habit-facts {
