@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
+import { Check } from 'lucide-vue-next'
 import ActivityGrid from '@/components/ActivityGrid.vue'
 import HealthPill from '@/components/HealthPill.vue'
 import { isTruncated, truncateName } from '@/lib/truncate'
@@ -35,6 +36,37 @@ async function park(habitId: number) {
     parkingId.value = null
   }
 }
+
+/**
+ * Whether today is already logged.
+ *
+ * The payload answers this directly — today has its own row in `days` — so
+ * there is nothing to infer from a last-completed date, and the API needed no
+ * new field. `completed` is the server's judgement, never the client's (D-1):
+ * for a quantity habit it means a value above zero, so showing up for two
+ * minutes of a fifteen-minute target counts. That is deliberately the same
+ * rule the streak, the health pill and the grid on this row already use — a
+ * tick that disagreed with the shading beside it would be worse than no tick.
+ */
+function doneToday(habit: DashboardHabit): boolean {
+  return habit.days.some(day => day.date === data.value?.today && day.completed)
+}
+
+/**
+ * What is still to do, then what is done.
+ *
+ * Two filters rather than a sort, so the habits' own order survives inside
+ * each group — that order is what was dragged into place on /habits and stored
+ * as `position`, and a comparator returning 0 for equal members is only stable
+ * by specification, not by inspection.
+ *
+ * Nothing on this screen logs a habit, so the list cannot reshuffle underneath
+ * someone mid-glance; it settles once per load.
+ */
+const orderedHabits = computed(() => {
+  const habits = data.value?.habits ?? []
+  return [...habits.filter(h => !doneToday(h)), ...habits.filter(h => doneToday(h))]
+})
 
 /**
  * The facts line, written short enough to survive a phone.
@@ -110,11 +142,24 @@ onMounted(load)
         the row shorter, because its height becomes the taller of the two
         rather than their sum.
       -->
-      <article v-for="habit in data.habits" :key="habit.id" class="dashboard__habit">
+      <article v-for="habit in orderedHabits" :key="habit.id" class="dashboard__habit">
         <div class="dashboard__habit-info">
-          <h2 class="dashboard__habit-name" :title="isTruncated(habit.name) ? habit.name : undefined">
-            {{ truncateName(habit.name) }}
-          </h2>
+          <!--
+            The tick sits beside the name rather than inside it: the name
+            truncates, and a tick inside would be the first thing an ellipsis
+            ate on a long habit.
+          -->
+          <div class="dashboard__habit-heading">
+            <h2 class="dashboard__habit-name" :title="isTruncated(habit.name) ? habit.name : undefined">
+              {{ truncateName(habit.name) }}
+            </h2>
+            <Check
+              v-if="doneToday(habit)"
+              class="dashboard__habit-tick"
+              role="img"
+              aria-label="Done today"
+            />
+          </div>
           <!--
             A display affordance, not a calculation (D-26 is about the latter —
             no scoring path branches on daily). "Daily" is what a person calls
