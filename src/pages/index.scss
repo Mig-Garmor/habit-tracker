@@ -29,18 +29,23 @@
   }
 
   &__habit-done {
-    /* Out of the flex flow entirely, so a ticked card and an unticked one are
-       laid out identically — nothing shifts as habits are completed.
+    /* On the container's corner, straddling it — not tucked inside, where it
+       landed on the activity squares and read as part of the grid rather than
+       as a property of the whole habit.
 
-       The ring is the card's own background, which lifts the badge off the
-       activity squares behind it instead of letting its edge blend into
-       them. */
-    @apply absolute right-2 top-2 flex size-5 items-center justify-center rounded-full;
-    @apply bg-success text-success-foreground ring-2 ring-card;
+       The same offset on both axes, so it sits on the corner rather than
+       nearer one edge than the other. 8px out of a 20px badge leaves most of
+       it over the card and takes it clear of the grid, and 8px is also the
+       gap between cards, so it reaches the neighbour above without crossing
+       into it.
 
-    @screen sm {
-      @apply right-3 top-3;
-    }
+       No ring: a ring existed to separate the badge from the squares behind
+       it, and there are no longer any squares behind it.
+
+       Out of the flex flow entirely, so a done card and an undone one are
+       laid out identically — nothing shifts as habits are completed. */
+    @apply absolute -right-2 -top-2 flex size-5 items-center justify-center rounded-full;
+    @apply bg-success text-success-foreground;
   }
 
   &__habit-done-tick {
