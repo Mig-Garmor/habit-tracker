@@ -1,7 +1,8 @@
 import { useAuth } from './auth'
 
-export type HabitKind = 'binary' | 'quantity'
+export type HabitKind = 'binary' | 'quantity' | 'checklist' | 'journal'
 export type HabitStatus = 'active' | 'upcoming' | 'archived'
+export type HabitSlot = 'morning' | 'evening'
 export type Health = 'new' | 'struggling' | 'steady' | 'consistent'
 export type ActivityLevel = 0 | 1 | 2 | 3 | 4
 
@@ -16,6 +17,17 @@ export interface Habit {
   activatedAt: string | null
   createdAt: string
   timesPerWeek: number
+  slot: HabitSlot
+  /** ISO weekdays the habit is listed on, 1 = Monday (D-27). */
+  weekdays: number[]
+  question: string | null
+  steps: HabitStep[]
+}
+
+export interface HabitStep {
+  id: number
+  label: string
+  position: number
 }
 
 export interface DashboardDay {
@@ -44,6 +56,7 @@ export interface DashboardHabit {
   notesEnabled: boolean
   activatedAt: string | null
   timesPerWeek: number
+  slot: HabitSlot
   health: Health
   streak: number
   rate: number
@@ -68,6 +81,8 @@ export interface LogEntry {
   completed: boolean
   value: number | null
   note: string | null
+  /** Ticked step ids. Present only on a checklist's entry. */
+  steps?: number[] | null
 }
 
 export interface LogHabit {
@@ -77,6 +92,8 @@ export interface LogHabit {
   unit: string | null
   target: number | null
   notesEnabled: boolean
+  slot: HabitSlot
+  steps: { id: number, label: string }[]
   entry: LogEntry | null
 }
 
@@ -91,6 +108,37 @@ export interface LogEntryInput {
   completed?: boolean
   value?: number | null
   note?: string | null
+  steps?: number[]
+}
+
+export interface TodayHabit {
+  id: number
+  name: string
+  kind: HabitKind
+  unit: string | null
+  target: number | null
+  notesEnabled: boolean
+  question: string | null
+  timesPerWeek: number
+  steps: { id: number, label: string }[]
+  /** Set only when listed because it is owed from earlier in the week (D-31). */
+  carriedFrom: string | null
+  progress: number
+  entry: LogEntry | null
+}
+
+export interface TodaySlot {
+  habits: TodayHabit[]
+  progress: number
+  done: number
+  total: number
+}
+
+export interface TodayResponse {
+  date: string
+  weekday: number
+  morningVisible: boolean
+  slots: Record<HabitSlot, TodaySlot>
 }
 
 export interface CreateHabitInput {
@@ -101,9 +149,12 @@ export interface CreateHabitInput {
   notesEnabled?: boolean
   status?: 'active' | 'upcoming'
   timesPerWeek?: number
+  slot?: HabitSlot
+  weekdays?: number[]
+  question?: string | null
 }
 
-export type UpdateHabitInput = Partial<Omit<Habit, 'id' | 'createdAt' | 'activatedAt'>>
+export type UpdateHabitInput = Partial<Omit<Habit, 'id' | 'createdAt' | 'activatedAt' | 'steps'>>
 
 /**
  * The app is two processes: Vite serves the pages and proxies /api to the Hono
@@ -177,6 +228,10 @@ export async function saveLog(date: string, entries: LogEntryInput[]): Promise<L
   return json<LogResponse>(await send(`/api/log/${date}`, 'PUT', { entries }))
 }
 
+export async function fetchToday(date: string): Promise<TodayResponse> {
+  return json<TodayResponse>(await request(`/api/today/${date}`))
+}
+
 export async function fetchHabits(status?: HabitStatus): Promise<Habit[]> {
   const query = status ? `?status=${status}` : ''
   const body = await json<{ habits: Habit[] }>(await request(`/api/habits${query}`))
@@ -200,6 +255,15 @@ export async function updateHabit(id: number, input: UpdateHabitInput): Promise<
  */
 export async function reorderHabits(ids: number[]): Promise<void> {
   await send('/api/habits/reorder', 'PUT', { ids })
+}
+
+/**
+ * Replaces a checklist's whole step list (D-35): an id keeps and renames a
+ * step, no id adds one, and a step left out is deleted.
+ */
+export async function saveSteps(id: number, steps: { id?: number, label: string }[]): Promise<Habit> {
+  const body = await json<{ habit: Habit }>(await send(`/api/habits/${id}/steps`, 'PUT', { steps }))
+  return body.habit
 }
 
 export interface HabitNote {

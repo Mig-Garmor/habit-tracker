@@ -20,6 +20,7 @@ function habit(overrides: Partial<DashboardHabit> = {}): DashboardHabit {
     notesEnabled: false,
     activatedAt: '2026-01-01',
     timesPerWeek: 4,
+    slot: 'evening',
     health: 'steady',
     streak: 8,
     rate: 0.7,
