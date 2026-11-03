@@ -6,6 +6,12 @@ import { startOfWeek, weekDays } from './date.js'
  * the Today route and anything reading it later (MCP) agree by construction.
  */
 
+/**
+ * The hour the evening takes over on a weekday (D-29). The browser keeps its
+ * own copy in src/lib/day-part.ts; the server needs it for MCP's `front`.
+ */
+export const EVENING_STARTS_AT = 17
+
 /** ISO weekday of a local date key: 1 = Monday … 7 = Sunday. */
 export function isoWeekday(date: string): number {
   const [year, month, day] = date.split('-').map(Number)
