@@ -1,0 +1,56 @@
+.today-habit {
+  @apply flex flex-col gap-2 rounded-lg border p-3;
+
+  /* Done stays readable but stops asking for attention, as on /progress. */
+  &--done {
+    @apply opacity-60;
+  }
+
+  &__head {
+    @apply flex items-center gap-3;
+  }
+
+  &__name {
+    @apply min-w-0 flex-1 truncate text-sm font-medium;
+  }
+
+  &__carried {
+    @apply shrink-0 rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground;
+  }
+
+  &__count {
+    @apply shrink-0 text-xs tabular-nums text-muted-foreground;
+  }
+
+  &__question {
+    @apply text-xs italic text-muted-foreground;
+  }
+
+  &__steps {
+    @apply flex flex-col gap-1.5 pl-1;
+  }
+
+  &__step {
+    @apply flex items-center gap-2 text-sm;
+  }
+
+  &__amount {
+    @apply flex items-center gap-2;
+  }
+
+  &__amount-input {
+    @apply w-24 tabular-nums;
+  }
+
+  &__unit {
+    @apply text-sm text-muted-foreground;
+  }
+
+  &__note {
+    @apply min-h-16;
+  }
+
+  &__error {
+    @apply flex items-center gap-1 text-xs text-destructive;
+  }
+}

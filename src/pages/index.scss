@@ -1,0 +1,31 @@
+.today {
+  @apply mx-auto flex w-full max-w-xl flex-col gap-3;
+
+  &__slot {
+    @apply flex flex-col gap-2;
+  }
+
+  &__slot-head {
+    @apply flex items-baseline justify-between;
+  }
+
+  &__slot-title {
+    @apply text-lg font-semibold tracking-tight;
+  }
+
+  &__slot-count {
+    @apply text-xs tabular-nums text-muted-foreground;
+  }
+
+  &__state {
+    @apply py-6 text-sm text-muted-foreground;
+
+    &--error {
+      @apply flex flex-col items-start gap-3 text-destructive;
+    }
+  }
+
+  &__error {
+    @apply text-sm text-destructive;
+  }
+}

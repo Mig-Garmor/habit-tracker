@@ -1,0 +1,23 @@
+.slot-bar {
+  @apply flex w-full items-center gap-3 rounded-lg border px-3 py-2 text-left transition-colors;
+
+  &:hover {
+    @apply bg-muted;
+  }
+
+  &__label {
+    @apply w-16 shrink-0 text-sm font-medium;
+  }
+
+  &__track {
+    @apply h-2 flex-1 overflow-hidden rounded-full bg-muted;
+  }
+
+  &__fill {
+    @apply block h-full rounded-full bg-primary transition-all;
+  }
+
+  &__count {
+    @apply shrink-0 text-xs tabular-nums text-muted-foreground;
+  }
+}
