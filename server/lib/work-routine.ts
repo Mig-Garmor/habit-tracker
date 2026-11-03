@@ -1,6 +1,12 @@
 import type { PgDatabase, PgQueryResultHKT } from 'drizzle-orm/pg-core'
 import { habits, habitSteps, type HabitKind } from '../db/schema.js'
 
+/** Names the MCP tools look these habits up by (MCP spec, Tools). */
+export const PLAN_THE_WEEK = 'Plan the week'
+export const TEAM_CHECK = 'Check what each team member is working on'
+export const RECAP = 'Recap team initiatives'
+export const WHAT_DID_I_DO = 'What did I do today'
+
 /** The morning work habits from the Today view spec. */
 export const WORK_ROUTINE: {
   name: string
@@ -12,7 +18,7 @@ export const WORK_ROUTINE: {
   steps: string[]
 }[] = [
   {
-    name: 'Plan the week',
+    name: PLAN_THE_WEEK,
     kind: 'checklist',
     weekdays: [1],
     timesPerWeek: 1,
@@ -28,7 +34,7 @@ export const WORK_ROUTINE: {
     ],
   },
   {
-    name: 'Check what each team member is working on',
+    name: TEAM_CHECK,
     kind: 'checklist',
     weekdays: [1, 2, 3, 4, 5],
     timesPerWeek: 5,
@@ -38,7 +44,7 @@ export const WORK_ROUTINE: {
     steps: [],
   },
   {
-    name: 'Recap team initiatives',
+    name: RECAP,
     kind: 'journal',
     weekdays: [1, 2, 3, 4, 5],
     timesPerWeek: 5,
@@ -47,7 +53,7 @@ export const WORK_ROUTINE: {
     steps: [],
   },
   {
-    name: 'What did I do today',
+    name: WHAT_DID_I_DO,
     kind: 'journal',
     weekdays: [1, 2, 3, 4, 5],
     timesPerWeek: 5,

@@ -4,7 +4,9 @@ import { requireSession } from './middleware/require-session.js'
 import { authRoutes } from './routes/auth.js'
 import { dashboardRoutes } from './routes/dashboard.js'
 import { habitsRoutes } from './routes/habits.js'
+import { habitTools } from './mcp/tools.js'
 import { logRoutes } from './routes/log.js'
+import { mcpRoutes } from './routes/mcp.js'
 import { todayRoutes } from './routes/today.js'
 
 /**
@@ -27,6 +29,8 @@ export function createApp() {
     return c.json({ ok: database !== 'unreachable', database }, database === 'unreachable' ? 503 : 200)
   })
   app.route('/api/auth', authRoutes)
+  // Its own bearer token, never the session cookie (D-39).
+  app.route('/api/mcp', mcpRoutes(habitTools))
 
   // Everything below this line requires a session.
   app.use('/api/*', requireSession())

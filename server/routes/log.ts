@@ -2,10 +2,10 @@ import { zValidator } from '@hono/zod-validator'
 import { and, eq, inArray, ne } from 'drizzle-orm'
 import { Hono } from 'hono'
 import { db } from '../db/client.js'
-import { habitEntries, habits, habitSteps, type Habit } from '../db/schema.js'
+import { LogEntryError, saveEntries } from '../db/save-entries.js'
+import { habitEntries, habits, type Habit } from '../db/schema.js'
 import { stepsByHabit } from '../db/steps.js'
 import { isValidDateKey, today } from '../lib/date.js'
-import { deriveEntry, EntryRuleError } from '../lib/entry-rules.js'
 import { logPayloadSchema } from '../validation.js'
 
 export const logRoutes = new Hono()
@@ -83,16 +83,6 @@ logRoutes.get('/:date', async c => {
   return c.json(await dayPayload(date))
 })
 
-/** Carries the HTTP status a mid-transaction validation failure should produce. */
-class LogEntryError extends Error {
-  status: 404 | 400
-
-  constructor(message: string, status: 404 | 400) {
-    super(message)
-    this.status = status
-  }
-}
-
 logRoutes.put('/:date', zValidator('json', logPayloadSchema), async c => {
   const date = c.req.param('date')
   if (!isValidDateKey(date)) return c.json({ error: 'Expected a date as YYYY-MM-DD' }, 400)
@@ -100,48 +90,8 @@ logRoutes.put('/:date', zValidator('json', logPayloadSchema), async c => {
 
   const { entries } = c.req.valid('json')
 
-  // The whole day is one commit: if a later entry is invalid, earlier entries
-  // in this same PUT must not stick around half-saved.
   try {
-    await db.transaction(async tx => {
-      for (const input of entries) {
-        const [habit] = await tx.select().from(habits).where(eq(habits.id, input.habitId))
-        if (!habit) throw new LogEntryError(`Habit ${input.habitId} not found`, 404)
-        if (habit.status === 'archived') {
-          throw new LogEntryError(`Habit ${input.habitId} is archived`, 400)
-        }
-
-        // An omitted note or set of ticks keeps whatever is stored (D-6), so
-        // the stored row is read first.
-        const [existing] = await tx
-          .select()
-          .from(habitEntries)
-          .where(and(eq(habitEntries.habitId, habit.id), eq(habitEntries.date, date)))
-
-        const stepIds = habit.kind === 'checklist'
-          ? (await tx.select({ id: habitSteps.id }).from(habitSteps).where(eq(habitSteps.habitId, habit.id)))
-              .map(row => row.id)
-          : []
-
-        // The server decides what counts as done — never the client (D-1).
-        let derived
-        try {
-          derived = deriveEntry(habit, stepIds, input, existing ?? null)
-        } catch (err) {
-          if (err instanceof EntryRuleError) throw new LogEntryError(err.message, 400)
-          throw err
-        }
-        const { completed, value, note, steps } = derived
-
-        await tx
-          .insert(habitEntries)
-          .values({ habitId: habit.id, date, completed, value, note, steps })
-          .onConflictDoUpdate({
-            target: [habitEntries.habitId, habitEntries.date],
-            set: { completed, value, note, steps },
-          })
-      }
-    })
+    await saveEntries(date, entries)
   } catch (err) {
     if (err instanceof LogEntryError) return c.json({ error: err.message }, err.status)
     throw err
