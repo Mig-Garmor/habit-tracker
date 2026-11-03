@@ -124,3 +124,57 @@ describe('the read tools', () => {
     expect(content[0]!.text).toContain('- [x] Exercise — done')
   })
 })
+
+describe('log_habit', () => {
+  const FRI = '2026-10-30'
+
+  beforeAll(async () => {
+    const { habits } = await import('../db/schema.js')
+    await (holder.db as Db).insert(habits).values({ name: 'Reading', kind: 'quantity', unit: 'pages', target: 20, status: 'active', activatedAt: '2026-10-01' })
+  })
+
+  it('is listed', () => {
+    expect(list().map(tool => tool.name)).toContain('log_habit')
+  })
+
+  it('ticks a habit', async () => {
+    const { structuredContent } = await call('log_habit', { habit: 'Exercise', date: FRI, completed: true })
+    expect(structuredContent).toMatchObject({ habit: 'Exercise', date: FRI, entry: { completed: true } })
+  })
+
+  it('keeps the tick when only a note is added afterwards', async () => {
+    const { structuredContent } = await call('log_habit', { habit: 'Exercise', date: FRI, note: 'intervals' })
+    expect(structuredContent.entry).toMatchObject({ completed: true, note: 'intervals' })
+  })
+
+  it('records an amount', async () => {
+    const { structuredContent } = await call('log_habit', { habit: 'reading', date: FRI, value: 12 })
+    expect(structuredContent.entry).toMatchObject({ completed: true, value: 12 })
+  })
+
+  it('completes a journal by writing in it (D-32)', async () => {
+    const { structuredContent } = await call('log_habit', { habit: 'What did I do today', date: FRI, note: 'Shipped the Today view' })
+    expect(structuredContent.entry).toMatchObject({ completed: true, note: 'Shipped the Today view' })
+  })
+
+  it('ticks checklist steps by their labels, in any case', async () => {
+    const { structuredContent } = await call('log_habit', { habit: 'Plan the week', date: FRI, steps: ['check open prs in catena-unicorn'] })
+    expect(structuredContent.entry).toMatchObject({ completed: true, value: 1, steps: ['Check open PRs in catena-unicorn'] })
+  })
+
+  it('names the real steps when given one that does not exist', async () => {
+    const result = await call('log_habit', { habit: 'Plan the week', date: FRI, steps: ['Make coffee'] })
+    expect(result.isError).toBe(true)
+    expect(result.content[0]!.text).toBe('"Plan the week" has no step "Make coffee". Its steps: "Check tasks in progress (team and mine)", '
+      + '"Check available tasks", "Check open PRs in catena-unicorn", "Order the tasks to tackle", "Decide the end-of-week target".')
+  })
+
+  it('refuses a future day', async () => {
+    expect((await call('log_habit', { habit: 'Exercise', date: '2999-01-01', completed: true })).isError).toBe(true)
+  })
+
+  it('refuses a call that says nothing to record', async () => {
+    const result = await call('log_habit', { habit: 'Exercise', date: FRI })
+    expect(result.isError).toBe(true)
+  })
+})

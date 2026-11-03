@@ -1,6 +1,7 @@
 import { and, asc, desc, eq, gte, isNotNull, lte, lt, ne } from 'drizzle-orm'
 import { z } from 'zod'
 import { db } from '../db/client.js'
+import { LogEntryError, saveEntries } from '../db/save-entries.js'
 import { habitEntries, habits, habitSteps, type Habit } from '../db/schema.js'
 import { endOfWeek, isValidDateKey, nowIn, startOfWeek, today } from '../lib/date.js'
 import { EVENING_STARTS_AT } from '../lib/schedule.js'
@@ -188,5 +189,64 @@ export const TOOLS: Tool[] = [
     },
   ),
 ]
+
+TOOLS.push(tool(
+  'log_habit',
+  'Record one habit for one day: tick it (completed), give an amount (value), write its note, or tick checklist steps by label. Whatever is left out stays as it was. A journal habit is done once its note has text.',
+  {
+    habit: { type: ['string', 'integer'], description: 'The habit\'s name (any case) or id.' },
+    date: DATE_SCHEMA,
+    completed: { type: 'boolean' },
+    value: { type: 'number', minimum: 0 },
+    note: { type: 'string', maxLength: 2000 },
+    steps: { type: 'array', items: { type: 'string' }, description: 'Labels of the steps done — the full set for the day.' },
+  },
+  z.object({
+    habit: z.union([z.string().min(1), z.number().int()]),
+    date: dateArg,
+    completed: z.boolean().optional(),
+    value: z.number().nonnegative().optional(),
+    note: z.string().max(2000).optional(),
+    steps: z.array(z.string()).max(20).optional(),
+  }),
+  async ({ habit: ref, date: rawDate, steps: labels, ...fields }) => {
+    const date = resolveDate(rawDate)
+    const habit = await findHabit(ref)
+    if (labels === undefined && Object.keys(fields).length === 0) {
+      throw new ToolError('Nothing to record: pass completed, value, note or steps.')
+    }
+
+    const steps = await db.select().from(habitSteps).where(eq(habitSteps.habitId, habit.id))
+      .orderBy(asc(habitSteps.position), asc(habitSteps.id))
+    let stepIds: number[] | undefined
+    if (labels !== undefined) {
+      stepIds = labels.map(label => {
+        const step = steps.find(s => s.label.toLowerCase() === label.trim().toLowerCase())
+        if (!step) {
+          const known = steps.map(s => `"${s.label}"`).join(', ') || 'none'
+          throw new ToolError(`"${habit.name}" has no step "${label}". Its steps: ${known}.`)
+        }
+        return step.id
+      })
+    }
+
+    try {
+      await saveEntries(date, [{ habitId: habit.id, ...fields, ...(stepIds ? { steps: stepIds } : {}) }])
+    } catch (err) {
+      if (err instanceof LogEntryError) throw new ToolError(err.message)
+      throw err
+    }
+
+    const [row] = await db.select().from(habitEntries)
+      .where(and(eq(habitEntries.habitId, habit.id), eq(habitEntries.date, date)))
+    const entry = {
+      completed: row!.completed,
+      value: row!.value,
+      note: row!.note,
+      ...(row!.steps ? { steps: steps.filter(s => row!.steps!.includes(s.id)).map(s => s.label) } : {}),
+    }
+    return ok(`${habit.name} on ${date}: ${entry.completed ? 'done' : 'not done'}${entry.note ? ` — ${entry.note}` : ''}`, { habit: habit.name, date, entry })
+  },
+))
 
 export const habitTools = createRegistry(TOOLS)
