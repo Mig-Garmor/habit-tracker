@@ -1,8 +1,9 @@
 import { zValidator } from '@hono/zod-validator'
-import { and, asc, eq, inArray, ne } from 'drizzle-orm'
+import { and, eq, inArray, ne } from 'drizzle-orm'
 import { Hono } from 'hono'
 import { db } from '../db/client.js'
-import { habitEntries, habits, habitSteps, type Habit, type HabitStep } from '../db/schema.js'
+import { habitEntries, habits, habitSteps, type Habit } from '../db/schema.js'
+import { stepsByHabit } from '../db/steps.js'
 import { isValidDateKey, today } from '../lib/date.js'
 import { deriveEntry, EntryRuleError } from '../lib/entry-rules.js'
 import { logPayloadSchema } from '../validation.js'
@@ -38,17 +39,6 @@ async function habitsForDate(date: string): Promise<Habit[]> {
   // spot here, which is the one screen where the order matters most: it is the
   // list worked through every day.
   return [...byId.values()].sort((a, b) => a.position - b.position || a.id - b.id)
-}
-
-/** Every listed habit's steps, in order, keyed by habit. */
-export async function stepsByHabit(habitIds: number[]): Promise<Map<number, HabitStep[]>> {
-  const rows = habitIds.length
-    ? await db.select().from(habitSteps).where(inArray(habitSteps.habitId, habitIds))
-      .orderBy(asc(habitSteps.position), asc(habitSteps.id))
-    : []
-  const byHabit = new Map<number, HabitStep[]>()
-  for (const row of rows) byHabit.set(row.habitId, [...(byHabit.get(row.habitId) ?? []), row])
-  return byHabit
 }
 
 async function dayPayload(date: string) {

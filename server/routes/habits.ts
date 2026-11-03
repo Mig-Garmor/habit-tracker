@@ -1,12 +1,27 @@
 import { zValidator } from '@hono/zod-validator'
-import { and, asc, desc, eq, inArray, isNotNull, ne } from 'drizzle-orm'
+import { and, asc, desc, eq, inArray, isNotNull, ne, sql } from 'drizzle-orm'
 import { Hono } from 'hono'
 import { db } from '../db/client.js'
-import { habitEntries, habits, habitStatuses } from '../db/schema.js'
+import { habitEntries, habits, habitStatuses, habitSteps, type Habit } from '../db/schema.js'
+import { stepsByHabit } from '../db/steps.js'
 import { today } from '../lib/date.js'
-import { createHabitSchema, quantityIsComplete, reorderHabitsSchema, updateHabitSchema } from '../validation.js'
+import {
+  createHabitSchema, quantityIsComplete, reorderHabitsSchema, stepsPayloadSchema, updateHabitSchema,
+} from '../validation.js'
 
 export const habitsRoutes = new Hono()
+
+/** A habit as the API returns it: the row plus its steps (empty unless a checklist). */
+async function withSteps(rows: Habit[]) {
+  const steps = await stepsByHabit(rows.map(row => row.id))
+  return rows.map(row => ({
+    ...row,
+    steps: (steps.get(row.id) ?? []).map(({ id, label, position }) => ({ id, label, position })),
+  }))
+}
+
+/** Kinds whose meaning lives in other data — steps, or the note itself (D-37). */
+const FIXED_KINDS = new Set(['checklist', 'journal'])
 
 habitsRoutes.get('/', async c => {
   const status = c.req.query('status')
@@ -18,7 +33,7 @@ habitsRoutes.get('/', async c => {
   const rows = await (status ? query.where(eq(habits.status, status as (typeof habitStatuses)[number])) : query)
     .orderBy(asc(habits.position), asc(habits.id))
 
-  return c.json({ habits: rows })
+  return c.json({ habits: await withSteps(rows) })
 })
 
 habitsRoutes.post('/', zValidator('json', createHabitSchema), async c => {
@@ -119,6 +134,52 @@ habitsRoutes.get('/:id/notes', async c => {
   })
 })
 
+habitsRoutes.put('/:id/steps', zValidator('json', stepsPayloadSchema), async c => {
+  const id = Number(c.req.param('id'))
+  if (!Number.isInteger(id)) return c.json({ error: 'Invalid habit id' }, 400)
+
+  const { steps } = c.req.valid('json')
+
+  return db.transaction(async tx => {
+    const [habit] = await tx.select().from(habits).where(eq(habits.id, id))
+    if (!habit) return c.json({ error: 'Habit not found' }, 404)
+    if (habit.kind !== 'checklist') return c.json({ error: 'Only a checklist habit has steps' }, 400)
+
+    const current = await tx.select({ id: habitSteps.id }).from(habitSteps).where(eq(habitSteps.habitId, id))
+    const currentIds = new Set(current.map(row => row.id))
+    const unknown = steps.find(step => step.id !== undefined && !currentIds.has(step.id))
+    if (unknown) return c.json({ error: `Step ${unknown.id} does not belong to habit ${id}` }, 400)
+
+    const kept = new Set(steps.flatMap(step => (step.id === undefined ? [] : [step.id])))
+    const removed = [...currentIds].filter(stepId => !kept.has(stepId))
+
+    if (removed.length) {
+      await tx.delete(habitSteps).where(inArray(habitSteps.id, removed))
+      // Past days lose the tick but keep their count, so history keeps its
+      // shading (D-35).
+      for (const stepId of removed) {
+        await tx.execute(sql`update habit_entries set steps = array_remove(steps, ${stepId}) where habit_id = ${id}`)
+      }
+    }
+
+    for (const [position, step] of steps.entries()) {
+      if (step.id === undefined) {
+        await tx.insert(habitSteps).values({ habitId: id, label: step.label, position })
+      } else {
+        await tx.update(habitSteps).set({ label: step.label, position }).where(eq(habitSteps.id, step.id))
+      }
+    }
+
+    // A checklist's target is its step count (D-30).
+    await tx.update(habits).set({ target: steps.length }).where(eq(habits.id, id))
+  }).then(async response => {
+    if (response) return response
+    const [habit] = await db.select().from(habits).where(eq(habits.id, id))
+    const [shaped] = await withSteps([habit!])
+    return c.json({ habit: shaped })
+  })
+})
+
 habitsRoutes.patch('/:id', zValidator('json', updateHabitSchema), async c => {
   const id = Number(c.req.param('id'))
   if (!Number.isInteger(id)) {
@@ -136,6 +197,11 @@ habitsRoutes.patch('/:id', zValidator('json', updateHabitSchema), async c => {
   // *merged* result — a patch touching only `name` must pass even though the
   // existing habit is a quantity habit, but a patch that would leave a
   // quantity habit without a unit or target must be rejected.
+  if (input.kind !== undefined && input.kind !== existing.kind
+    && (FIXED_KINDS.has(input.kind) || FIXED_KINDS.has(existing.kind))) {
+    return c.json({ error: 'A checklist or journal habit cannot change kind' }, 400)
+  }
+
   const merged = { ...existing, ...input }
   if (!quantityIsComplete(merged)) {
     return c.json({ error: 'A quantity habit needs both a unit and a target' }, 400)
@@ -147,6 +213,7 @@ habitsRoutes.patch('/:id', zValidator('json', updateHabitSchema), async c => {
     .update(habits)
     .set({
       ...input,
+      ...(input.question !== undefined ? { question: input.question || null } : {}),
       // Returning to active restarts the grace period (D-3).
       ...(becomingActive ? { activatedAt: today() } : {}),
     })

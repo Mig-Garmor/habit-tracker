@@ -90,3 +90,23 @@ export const reorderHabitsSchema = z.object({
     .min(1, 'Expected at least one habit')
     .refine(ids => new Set(ids).size === ids.length, 'The same habit appears twice'),
 })
+
+/**
+ * The complete, ordered step list for one checklist (D-35). An id renames and
+ * moves an existing step; no id creates one; a step left out is deleted.
+ */
+export const stepsPayloadSchema = z.object({
+  steps: z
+    .array(z.object({
+      id: z.number().int().positive().optional(),
+      label: z.string().trim().min(1, 'A step needs a label').max(80),
+    }))
+    .max(20, 'A checklist can have at most 20 steps')
+    .refine(
+      steps => {
+        const ids = steps.flatMap(step => (step.id === undefined ? [] : [step.id]))
+        return new Set(ids).size === ids.length
+      },
+      'The same step appears twice',
+    ),
+})
