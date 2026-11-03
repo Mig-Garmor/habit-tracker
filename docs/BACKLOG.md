@@ -44,6 +44,14 @@ schedule strict? Those two answers change most of the logic above.
 
 ---
 
+## Shipped since: weekday visibility (2026-11-03)
+
+Habits now carry `weekdays`, but only to decide which days the Today view lists them (D-27).
+Scoring still reads `timesPerWeek` alone, so the weekday-specific *scoring* question above stays
+open on purpose. Next up: an MCP server over this data (part 2 of the Today view work).
+
+---
+
 ## Operational — not code
 
 - **Split the Neon branches.** Local `.env` and the Vercel project point at the *same* Neon
