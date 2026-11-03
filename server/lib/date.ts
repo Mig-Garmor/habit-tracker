@@ -10,8 +10,30 @@ export function toDateKey(date: Date): string {
   return `${year}-${month}-${day}`
 }
 
+/**
+ * The calendar day and hour in `tz` (an IANA name such as Europe/Malta), or in
+ * the process's own zone when `tz` is missing or unknown (D-40). Production
+ * runs in UTC, where the first hour after local midnight is still "yesterday".
+ */
+export function nowIn(tz: string | undefined, at: Date = new Date()): { date: string, hour: number } {
+  if (tz) {
+    try {
+      const parts = Object.fromEntries(
+        new Intl.DateTimeFormat('en-CA', {
+          timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', hourCycle: 'h23',
+        }).formatToParts(at).map(part => [part.type, part.value]),
+      )
+      return { date: `${parts.year}-${parts.month}-${parts.day}`, hour: Number(parts.hour) }
+    } catch {
+      // An unknown zone is a configuration slip; the process clock is a better
+      // answer than refusing every request.
+    }
+  }
+  return { date: toDateKey(at), hour: at.getHours() }
+}
+
 export function today(): string {
-  return toDateKey(new Date())
+  return nowIn(process.env.HABIT_TIMEZONE).date
 }
 
 export function previousDay(dateKey: string): string {

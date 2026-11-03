@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { dateRange, isValidDateKey, isWeekComplete, lastNDays, lastNWeekStarts, nextDay, nextWeek, previousDay, previousWeek, startOfWeek, toDateKey, weekDays, weekStartsInRange, endOfWeek } from './date.js'
+import { dateRange, isValidDateKey, isWeekComplete, lastNDays, lastNWeekStarts, nextDay, nextWeek, previousDay, previousWeek, startOfWeek, toDateKey, weekDays, weekStartsInRange, endOfWeek, nowIn } from './date.js'
 
 describe('toDateKey', () => {
   it('formats a local date as YYYY-MM-DD', () => {
@@ -227,5 +227,25 @@ describe('endOfWeek', () => {
 
   it('crosses a month boundary', () => {
     expect(endOfWeek('2026-09-30')).toBe('2026-10-04')
+  })
+})
+
+describe('nowIn (D-40)', () => {
+  // 23:30 UTC on Monday 2 November is already 00:30 on Tuesday in Malta.
+  const LATE_MONDAY_UTC = new Date('2026-11-02T23:30:00Z')
+
+  it('reads the day and hour in the given time zone, not the server’s', () => {
+    expect(nowIn('Europe/Malta', LATE_MONDAY_UTC)).toEqual({ date: '2026-11-03', hour: 0 })
+  })
+
+  it('falls back to the process clock with no time zone', () => {
+    expect(nowIn(undefined, LATE_MONDAY_UTC)).toEqual({
+      date: toDateKey(LATE_MONDAY_UTC),
+      hour: LATE_MONDAY_UTC.getHours(),
+    })
+  })
+
+  it('falls back to the process clock for a time zone that does not exist', () => {
+    expect(nowIn('Mars/Olympus_Mons', LATE_MONDAY_UTC).date).toBe(toDateKey(LATE_MONDAY_UTC))
   })
 })
