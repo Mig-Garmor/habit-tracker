@@ -21,5 +21,8 @@ export default defineConfig({
     // with a `// @vitest-environment happy-dom` docblock, so the fast default
     // is not paid for by the whole suite.
     environment: 'node',
+    // A component spec's first test pays for transforming its page and
+    // reka-ui on demand; under load that alone passed the 5s default.
+    testTimeout: 20_000,
   },
 })
