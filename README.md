@@ -61,6 +61,7 @@ are open. The router guard in the browser is convenience only and protects nothi
 | `pnpm db:generate` | Turn schema changes into a migration in `drizzle/` |
 | `pnpm db:migrate` | Apply pending migrations |
 | `pnpm db:seed` | Insert starter habits (no-op if any exist) |
+| `pnpm db:seed:routine` | Add the morning work routine — missing habits only, matched by name |
 | `pnpm db:reset` | Drop the schema, migrate, and reseed the four habits |
 | `pnpm db:studio` | Browse the database in Drizzle Studio |
 
@@ -71,11 +72,11 @@ drizzle/              generated migration SQL — committed
 server/
   index.ts            listener — binds the port
   app.ts              Hono app + route wiring (used directly by tests, no port needed)
-  routes/             /api/habits, /api/dashboard, /api/log
+  routes/             /api/habits, /api/dashboard, /api/log, /api/today
   db/schema.ts        Drizzle tables
   db/client.ts        Neon Postgres connection
-  lib/                pure date/level/consistency/dashboard logic (+ .spec.ts each)
-scripts/              migrate.ts, seed.ts
+  lib/                pure date/level/consistency/dashboard/schedule logic (+ .spec.ts each)
+scripts/              migrate.ts, seed.ts, seed-work-routine.ts
 src/
   pages/              file-system routes
   components/         your components
@@ -88,15 +89,29 @@ src/
 
 File-based: add `src/pages/stats.vue` and `/stats` exists; `src/pages/habits/[id].vue` would give
 `/habits/:id` with a typed `id` param. Types are regenerated into `typed-router.d.ts` (gitignored)
-as you save. The three routes actually wired up today are listed below.
+as you save. The routes actually wired up today are listed below.
 
 ## Screens
 
 | Route | What it does |
 |---|---|
-| `/` | Dashboard — an activity grid per active habit, with slipping habits called out |
+| `/` | Today — the morning (work) or evening (personal) habits in front, the other as a completion bar; ticks save as you go |
+| `/progress` | An activity grid per active habit, grouped by slot, with slipping habits called out |
 | `/log` | Record a day. `?date=YYYY-MM-DD` backfills; tapping any square lands here |
 | `/habits` | Manage the active list, the upcoming backlog, and the archive |
+
+### Which slot is in front
+
+| When | In front | Folded into a bar |
+|---|---|---|
+| Mon–Fri, before 17:00 | Morning | Evening |
+| Mon–Fri, from 17:00 | Evening | Morning |
+| Sat–Sun | Evening | — (no morning) |
+
+Pressing a bar brings that slot forward until the clock next switches. The hour lives in
+`EVENING_STARTS_AT` (`src/lib/day-part.ts`). A habit's weekdays decide which days it is listed
+on; scoring still reads only its times per week. A weekly habit missed on its day stays listed,
+marked "from Monday", until done. Design: `docs/superpowers/specs/2026-11-03-today-view-design.md`.
 
 ## Styling convention
 

@@ -287,3 +287,89 @@ describe('GET /api/dashboard', () => {
     expect(response.status).toBe(200)
   })
 })
+
+describe('checklist and journal habits', () => {
+  let planId: number
+  let teamId: number
+  let journalId: number
+  let stepIds: number[]
+
+  interface StepsDay {
+    habits: (LogHabit & { slot: string, steps: { id: number, label: string }[], entry: (LogHabitEntry & { steps?: number[] | null }) | null })[]
+  }
+
+  beforeAll(async () => {
+    const create = async (body: unknown) => {
+      const { habit } = await readJson<CreateHabitResponse>(app.request('/api/habits', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', cookie },
+        body: JSON.stringify(body),
+      }))
+      return habit.id
+    }
+    planId = await create({ name: 'Plan the week', kind: 'checklist', slot: 'morning', notesEnabled: true })
+    teamId = await create({ name: 'Check the team', kind: 'checklist', slot: 'morning' })
+    journalId = await create({ name: 'What did I do today', kind: 'journal', slot: 'morning' })
+
+    const { habitSteps } = await import('../db/schema.js')
+    const db = holder.db as Awaited<ReturnType<typeof createTestDb>>['db']
+    const rows = await db.insert(habitSteps).values(
+      ['Tasks in progress', 'Available tasks', 'Open PRs', 'Order', 'Target']
+        .map((label, position) => ({ habitId: planId, label, position })),
+    ).returning()
+    stepIds = rows.map(row => row.id)
+  })
+
+  const find = (body: StepsDay, id: number) => body.habits.find(h => h.id === id)!
+
+  it('lists a checklist with its steps and slot', async () => {
+    const body = await readJson<StepsDay>(app.request('/api/log/2026-03-02', { headers: { cookie } }))
+    const plan = find(body, planId)
+    expect(plan.slot).toBe('morning')
+    expect(plan.steps.map(step => step.label)).toEqual(['Tasks in progress', 'Available tasks', 'Open PRs', 'Order', 'Target'])
+  })
+
+  it('counts ticked steps as the value and marks the day done (D-30)', async () => {
+    const body = await readJson<StepsDay>(put('2026-03-02', [{ habitId: planId, steps: [stepIds[0], stepIds[2]] }]))
+    expect(find(body, planId).entry).toEqual({ completed: true, value: 2, note: null, steps: [stepIds[0], stepIds[2]] })
+  })
+
+  it('keeps the ticks when only the note is sent', async () => {
+    const body = await readJson<StepsDay>(put('2026-03-02', [{ habitId: planId, note: 'Ship the Today view' }]))
+    expect(find(body, planId).entry).toMatchObject({ value: 2, note: 'Ship the Today view', steps: [stepIds[0], stepIds[2]] })
+  })
+
+  it('refuses a step from somewhere else with a readable message', async () => {
+    const response = await put('2026-03-02', [{ habitId: planId, steps: [99999] }])
+    expect(response.status).toBe(400)
+    expect(await readJson<{ error: string }>(response)).toEqual({ error: `Step 99999 does not belong to habit ${planId}` })
+  })
+
+  it('ticks a checklist that has no steps yet like a plain habit', async () => {
+    const body = await readJson<StepsDay>(put('2026-03-02', [{ habitId: teamId, completed: true }]))
+    expect(find(body, teamId).entry).toMatchObject({ completed: true, value: null })
+  })
+
+  it('completes a journal by writing in it, and un-completes it by clearing it (D-32)', async () => {
+    let body = await readJson<StepsDay>(put('2026-03-02', [{ habitId: journalId, note: 'Reviewed two PRs' }]))
+    expect(find(body, journalId).entry).toMatchObject({ completed: true, note: 'Reviewed two PRs' })
+
+    body = await readJson<StepsDay>(put('2026-03-02', [{ habitId: journalId, note: '' }]))
+    expect(find(body, journalId).entry).toMatchObject({ completed: false, note: null })
+  })
+
+  it('creates a journal with notes on, whatever was asked', async () => {
+    const body = await readJson<StepsDay>(app.request('/api/log/2026-03-02', { headers: { cookie } }))
+    expect(find(body, journalId).notesEnabled).toBe(true)
+  })
+})
+
+describe('saving only a note (review C1)', () => {
+  it('leaves a ticked habit ticked and an amount where it was', async () => {
+    await put('2026-04-01', [{ habitId: exerciseId, completed: true }, { habitId: meditationId, value: 8 }])
+    const body = await readJson<LogDayResponse>(put('2026-04-01', [{ habitId: exerciseId, note: '45 min run' }]))
+
+    expect(body.habits.find(h => h.id === exerciseId)!.entry).toMatchObject({ completed: true, note: '45 min run' })
+    expect(body.habits.find(h => h.id === meditationId)!.entry).toMatchObject({ completed: true, value: 8 })
+  })
+})

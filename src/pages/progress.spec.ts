@@ -1,0 +1,355 @@
+// @vitest-environment happy-dom
+import { flushPromises, mount } from '@vue/test-utils'
+import { describe, expect, it, vi } from 'vitest'
+import type { DashboardHabit, DashboardResponse, DashboardWarning } from '@/lib/api'
+
+/**
+ * D-25 made `currentStreak` count consecutive WEEKS, not days. progress.vue's (then index.vue)
+ * `streakLabel` and its warning banner were leftover from the day model
+ * (final-fixes-brief items 1 and 2) — this pins the corrected wording so a
+ * regression back to "day" reads as a failing test, not just a stale UI.
+ */
+
+function habit(overrides: Partial<DashboardHabit> = {}): DashboardHabit {
+  return {
+    id: 1,
+    name: 'Exercise',
+    kind: 'binary',
+    unit: null,
+    target: null,
+    notesEnabled: false,
+    activatedAt: '2026-01-01',
+    timesPerWeek: 4,
+    slot: 'evening',
+    health: 'steady',
+    streak: 8,
+    rate: 0.7,
+    days: [],
+    weeks: [],
+    ...overrides,
+  }
+}
+
+function warning(overrides: Partial<DashboardWarning> = {}): DashboardWarning {
+  return { habitId: 1, name: 'Exercise', rate: 0.42, ...overrides }
+}
+
+let dashboard: DashboardResponse
+
+vi.mock('@/lib/api', () => ({
+  fetchDashboard: () => Promise.resolve(dashboard),
+  updateHabit: vi.fn(),
+}))
+
+/**
+ * The grid's squares are RouterLinks, and there is no router here. Stubbing it
+ * as a real anchor keeps the question this file asks about them — which days
+ * link to the log and which do not — answerable from the rendered href.
+ */
+const RouterLinkStub = {
+  props: ['to'],
+  computed: {
+    href(): string {
+      const to = (this as unknown as { to: string | { path: string, query: { date: string } } }).to
+      return typeof to === 'string' ? to : `${to.path}?date=${to.query.date}`
+    },
+  },
+  template: '<a :href="href"><slot /></a>',
+}
+
+async function mountPage() {
+  const ProgressPage = (await import('./progress.vue')).default
+  const wrapper = mount(ProgressPage, {
+    attachTo: document.body,
+    global: { stubs: { RouterLink: RouterLinkStub } },
+  })
+  await flushPromises()
+  return wrapper
+}
+
+/** Mounts a dashboard holding one habit with the given fields. */
+async function mountWith(overrides: Partial<DashboardHabit>) {
+  dashboard = { today: '2026-09-13', from: '2026-09-07', habits: [habit(overrides)], warnings: [] }
+  return mountPage()
+}
+
+describe('dashboard streak label', () => {
+  // The wording shortened to fit a phone, but the unit is what this guards:
+  // currentStreak returns WEEKS, and the dashboard once printed them as days.
+  it('reports a streak of 8 in weeks, not days', async () => {
+    dashboard = { today: '2026-09-13', from: '2026-09-07', habits: [habit({ streak: 8 })], warnings: [] }
+    const wrapper = await mountPage()
+    expect(wrapper.text()).toContain('8w streak')
+    expect(wrapper.text()).not.toContain('day streak')
+  })
+
+  it('reports a streak of 1 in weeks too', async () => {
+    dashboard = { today: '2026-09-13', from: '2026-09-07', habits: [habit({ streak: 1 })], warnings: [] }
+    const wrapper = await mountPage()
+    expect(wrapper.text()).toContain('1w streak')
+    expect(wrapper.text()).not.toContain('day streak')
+  })
+})
+
+describe('dashboard warning banner', () => {
+  it('describes the rate as recent weeks, not a fourteen-day window', async () => {
+    dashboard = {
+      today: '2026-09-13',
+      from: '2026-09-07',
+      habits: [habit({ health: 'struggling', rate: 0.42 })],
+      warnings: [warning({ rate: 0.42 })],
+    }
+    const wrapper = await mountPage()
+    expect(wrapper.text()).toContain('42% of recent weeks')
+    expect(wrapper.text()).not.toContain('14 days')
+  })
+})
+
+/**
+ * The dashboard exists to be glanced at. Six habits used to take three screens
+ * because each was a card with a stacked header and a 112px grid; the point of
+ * the compact row is that consistency can be read in one look.
+ */
+describe('the compact habit row', () => {
+  it('states cadence and streak on one line, short enough for a phone', async () => {
+    const wrapper = await mountWith({ timesPerWeek: 4, streak: 3 })
+    const facts = wrapper.find('.dashboard__habit-facts').text()
+    expect(facts).toContain('4×/wk')
+    expect(facts).toContain('3w streak')
+    // The long forms do not fit beside a name and a health pill at 375px.
+    expect(facts).not.toContain('4× a week')
+    expect(facts).not.toContain('week streak · ')
+  })
+
+  it('calls a cadence of 7 daily rather than 7×/wk', async () => {
+    const wrapper = await mountWith({ timesPerWeek: 7, streak: 0 })
+    expect(wrapper.find('.dashboard__habit-facts').text()).toContain('daily')
+  })
+
+  it('shows the target on its own line, now that the text stacks', async () => {
+    // It used to be hidden on narrow screens because the one-line layout could
+    // not hold it. Stacking beside the grid uses the empty column to the
+    // grid's right, so there is room and nothing has to be dropped.
+    const wrapper = await mountWith({ kind: 'quantity', target: 15, unit: 'minutes', timesPerWeek: 7, streak: 0 })
+    const lines = wrapper.findAll('.dashboard__habit-facts').map(n => n.text())
+    expect(lines.some(line => line.includes('15 minutes'))).toBe(true)
+  })
+
+  it('shows no target line for a binary habit', async () => {
+    const wrapper = await mountWith({ kind: 'binary', timesPerWeek: 4, streak: 0 })
+    const lines = wrapper.findAll('.dashboard__habit-facts').map(n => n.text())
+    expect(lines.some(line => line.includes('target'))).toBe(false)
+  })
+
+  it('truncates a long name and keeps the whole one in the title', async () => {
+    const wrapper = await mountWith({ name: 'Record one video', timesPerWeek: 1, streak: 0 })
+    const name = wrapper.find('.dashboard__habit-name')
+    expect(name.text()).toBe('Record one…')
+    expect(name.attributes('title')).toBe('Record one video')
+  })
+})
+
+/**
+ * The grid now draws past today so today's square sits about two thirds across
+ * instead of at the right edge. That makes the two kinds of empty square mean
+ * different things, and the difference is not decorative:
+ *
+ * `server/routes/log.ts` rejects a future day with "Cannot log a future day",
+ * and log.vue caps its Next button at today. A future square rendered as a
+ * link would therefore walk someone into a page that refuses to save.
+ */
+describe('the days ahead of today', () => {
+  const day = (date: string, future: boolean) =>
+    ({ date, completed: false, value: null, note: null, level: 0 as const, future })
+
+  async function mountGrid() {
+    return mountWith({
+      days: [day('2026-09-12', false), day('2026-09-13', false), day('2026-09-14', true)],
+    })
+  }
+
+  it('does not link a future day to the log, which would refuse to save it', async () => {
+    const wrapper = await mountGrid()
+    const hrefs = wrapper.findAll('a').map(a => a.attributes('href'))
+    expect(hrefs).toContain('/log?date=2026-09-13')
+    expect(hrefs).not.toContain('/log?date=2026-09-14')
+  })
+
+  it('still draws the future day, so the grid keeps its full width', async () => {
+    const wrapper = await mountGrid()
+    expect(wrapper.findAll('.activity-grid__day')).toHaveLength(3)
+  })
+
+  it('marks it as future so it does not read as a day that was missed', async () => {
+    const wrapper = await mountGrid()
+    const squares = wrapper.findAll('.activity-grid__day')
+    expect(squares[1]!.classes()).not.toContain('is-future')
+    expect(squares[2]!.classes()).toContain('is-future')
+  })
+
+  it('says nothing has happened yet, rather than that nothing was logged', async () => {
+    const wrapper = await mountGrid()
+    const future = wrapper.findAll('.activity-grid__day')[2]!
+    expect(future.attributes('title')).toBe('2026-09-14 — still to come')
+    expect(future.attributes('title')).not.toContain('nothing logged')
+  })
+})
+
+/**
+ * Today needs to be findable at a glance now that the grid runs past it — the
+ * boundary between filled and lighter squares implies where today is, but only
+ * roughly, and never at all for a habit whose whole week is still empty.
+ *
+ * A dot inside the square rather than a ring around it: the grid already
+ * spends its outline vocabulary on notes (`has-note`) and on focus, and a
+ * third ring competing with those reads as chrome rather than as information.
+ */
+describe('marking today', () => {
+  const day = (date: string, future = false) =>
+    ({ date, completed: false, value: null, note: null, level: 0 as const, future })
+
+  // mountWith pins the dashboard's today to 2026-09-13.
+  async function mountGrid() {
+    return mountWith({
+      days: [day('2026-09-12'), day('2026-09-13'), day('2026-09-14', true)],
+    })
+  }
+
+  it('marks the square for today', async () => {
+    const wrapper = await mountGrid()
+    const squares = wrapper.findAll('.activity-grid__day')
+    expect(squares[1]!.classes()).toContain('is-today')
+  })
+
+  it('marks only that one square', async () => {
+    const wrapper = await mountGrid()
+    const marked = wrapper.findAll('.activity-grid__day').filter(s => s.classes().includes('is-today'))
+    expect(marked).toHaveLength(1)
+  })
+
+  it('leaves yesterday and tomorrow unmarked', async () => {
+    const wrapper = await mountGrid()
+    const squares = wrapper.findAll('.activity-grid__day')
+    expect(squares[0]!.classes()).not.toContain('is-today')
+    expect(squares[2]!.classes()).not.toContain('is-today')
+  })
+})
+
+/**
+ * The dashboard's job first thing in the morning is "what is left today", and
+ * it could not answer that: a habit already logged looked exactly like one
+ * that was not, so the answer had to be read out of fifteen columns of grid.
+ *
+ * Both halves are derived on the client from the payload it already receives.
+ * Today's own day row carries `completed`, so there is nothing to infer from a
+ * last-completed date, and no new field was added to the API for this.
+ */
+describe('habits done today', () => {
+  function dayRow(date: string, completed: boolean): DashboardHabit['days'][number] {
+    return { date, completed, value: null, note: null, level: completed ? 3 : 0, future: false }
+  }
+
+  /** A habit whose today (2026-09-13) is logged or not. */
+  function withToday(id: number, name: string, done: boolean): DashboardHabit {
+    return habit({
+      id,
+      name,
+      days: [dayRow('2026-09-12', false), dayRow('2026-09-13', done)],
+    })
+  }
+
+  async function mountList(habits: DashboardHabit[]) {
+    dashboard = { today: '2026-09-13', from: '2026-09-07', habits, warnings: [] }
+    return mountPage()
+  }
+
+  const names = (wrapper: Awaited<ReturnType<typeof mountPage>>) =>
+    wrapper.findAll('.dashboard__habit-name').map(n => n.text())
+
+  it('dims a habit that has been logged today', async () => {
+    const wrapper = await mountList([withToday(1, 'Exercise', true)])
+    expect(wrapper.find('.dashboard__habit').classes()).toContain('dashboard__habit--done')
+  })
+
+  it('leaves one that has not at full strength', async () => {
+    const wrapper = await mountList([withToday(1, 'Exercise', false)])
+    expect(wrapper.find('.dashboard__habit').classes()).not.toContain('dashboard__habit--done')
+  })
+
+  it('treats a habit with no row for today as still to do', async () => {
+    // A day nobody has touched has no entry at all, which is not the same
+    // shape as an entry saying `completed: false`.
+    const wrapper = await mountList([habit({ id: 1, name: 'Exercise', days: [dayRow('2026-09-12', true)] })])
+    expect(wrapper.find('.dashboard__habit').classes()).not.toContain('dashboard__habit--done')
+  })
+
+  it('lists what is still to do before what is done', async () => {
+    const wrapper = await mountList([
+      withToday(1, 'Done one', true),
+      withToday(2, 'Still to do', false),
+    ])
+    expect(names(wrapper)).toEqual(['Still to do', 'Done one'])
+  })
+
+  it('keeps the habits own order within each group', async () => {
+    // The order habits arrive in is the one dragged on /habits and stored as
+    // `position`. Grouping must not quietly re-sort inside a group.
+    const wrapper = await mountList([
+      withToday(1, 'Done first', true),
+      withToday(2, 'Todo first', false),
+      withToday(3, 'Done second', true),
+      withToday(4, 'Todo second', false),
+    ])
+    expect(names(wrapper)).toEqual(['Todo first', 'Todo second', 'Done first', 'Done second'])
+  })
+
+  it('says "done" somewhere a screen reader can reach', async () => {
+    // Dimness and list position are the whole visual signal, and neither is
+    // announced. Without this the state simply does not exist non-visually.
+    const wrapper = await mountList([withToday(1, 'Exercise', true)])
+    expect(wrapper.find('.sr-only').text()).toBe('Done today')
+  })
+
+  it('does not announce it for a habit still to do', async () => {
+    const wrapper = await mountList([withToday(1, 'Exercise', false)])
+    expect(wrapper.find('.sr-only').exists()).toBe(false)
+  })
+
+  it('dims only the habits that are actually done', async () => {
+    const wrapper = await mountList([
+      withToday(1, 'Done one', true),
+      withToday(2, 'Still to do', false),
+      withToday(3, 'Done two', true),
+    ])
+    const dimmed = wrapper.findAll('.dashboard__habit')
+      .filter(a => a.classes().includes('dashboard__habit--done'))
+    expect(dimmed).toHaveLength(2)
+  })
+})
+
+describe('grouping by slot (D-28)', () => {
+  it('shows morning habits under Morning and evening ones under Evening, each in position order', async () => {
+    dashboard = {
+      today: '2026-09-13',
+      from: '2026-09-07',
+      habits: [
+        habit({ id: 1, name: 'Exercise', slot: 'evening' }),
+        habit({ id: 2, name: 'Plan', slot: 'morning' }),
+        habit({ id: 3, name: 'Meditation', slot: 'evening' }),
+        habit({ id: 4, name: 'Recap', slot: 'morning' }),
+      ],
+      warnings: [],
+    }
+    const wrapper = await mountPage()
+
+    const sections = wrapper.findAll('.dashboard__slot')
+    expect(sections.map(section => section.find('.dashboard__slot-title').text())).toEqual(['Morning', 'Evening'])
+    expect(sections[0]!.findAll('.dashboard__habit-name').map(n => n.text())).toEqual(['Plan', 'Recap'])
+    expect(sections[1]!.findAll('.dashboard__habit-name').map(n => n.text())).toEqual(['Exercise', 'Meditation'])
+  })
+
+  it('leaves out the heading of a slot with nothing in it', async () => {
+    const wrapper = await mountWith({ slot: 'evening' })
+    expect(wrapper.findAll('.dashboard__slot-title').map(t => t.text())).toEqual(['Evening'])
+  })
+})

@@ -394,3 +394,141 @@ describe('GET /api/habits/:id/notes', () => {
     expect((await app.request(`/api/habits/${noted.id}/notes`)).status).toBe(401)
   })
 })
+
+describe('slot, weekdays and question', () => {
+  it('defaults a new habit to every day of the evening (D-28)', async () => {
+    const { habit } = await readJson<{ habit: Record<string, unknown> }>(post('/api/habits', { name: 'Read' }))
+    expect(habit).toMatchObject({ slot: 'evening', weekdays: [1, 2, 3, 4, 5, 6, 7], question: null })
+  })
+
+  it('stores a morning, workday habit with its question', async () => {
+    const { habit } = await readJson<{ habit: Record<string, unknown> }>(post('/api/habits', {
+      name: 'Recap team initiatives', kind: 'journal', slot: 'morning', weekdays: [1, 2, 3, 4, 5],
+      question: 'Which initiatives moved since yesterday?',
+    }))
+    expect(habit).toMatchObject({
+      slot: 'morning', weekdays: [1, 2, 3, 4, 5], question: 'Which initiatives moved since yesterday?',
+      notesEnabled: true,
+    })
+  })
+
+  it.each([
+    ['no days', []],
+    ['day zero', [0]],
+    ['day eight', [8]],
+    ['a repeated day', [1, 1]],
+  ])('rejects weekdays with %s', async (_label, weekdays) => {
+    expect((await post('/api/habits', { name: 'Bad days', weekdays })).status).toBe(400)
+  })
+
+  it('rejects a question over 200 characters', async () => {
+    expect((await post('/api/habits', { name: 'Wordy', question: 'x'.repeat(201) })).status).toBe(400)
+  })
+
+  it('moves a habit to the morning on PATCH', async () => {
+    const { habit } = await readJson<{ habit: { id: number } }>(post('/api/habits', { name: 'Move me' }))
+    const { habit: moved } = await readJson<{ habit: Record<string, unknown> }>(
+      patch(`/api/habits/${habit.id}`, { slot: 'morning', weekdays: [1] }),
+    )
+    expect(moved).toMatchObject({ slot: 'morning', weekdays: [1] })
+  })
+})
+
+describe('changing kind (D-37)', () => {
+  it('still allows a tick to become an amount', async () => {
+    const { habit } = await readJson<{ habit: { id: number } }>(post('/api/habits', { name: 'Stretch' }))
+    const response = await patch(`/api/habits/${habit.id}`, { kind: 'quantity', unit: 'minutes', target: 5 })
+    expect(response.status).toBe(200)
+  })
+
+  it('refuses to turn a checklist into anything else', async () => {
+    const { habit } = await readJson<{ habit: { id: number } }>(post('/api/habits', { name: 'List', kind: 'checklist' }))
+    const response = await patch(`/api/habits/${habit.id}`, { kind: 'binary' })
+    expect(response.status).toBe(400)
+    expect(await readJson<{ error: string }>(response)).toEqual({ error: 'A checklist or journal habit cannot change kind' })
+  })
+
+  it('refuses to turn a tick into a journal', async () => {
+    const { habit } = await readJson<{ habit: { id: number } }>(post('/api/habits', { name: 'Tick' }))
+    expect((await patch(`/api/habits/${habit.id}`, { kind: 'journal' })).status).toBe(400)
+  })
+})
+
+describe('PUT /api/habits/:id/steps (D-35)', () => {
+  interface StepRow { id: number, label: string, position: number }
+  interface WithSteps { habit: { id: number, target: number | null, steps: StepRow[] } }
+
+  let planId: number
+
+  function putSteps(id: number, steps: unknown) {
+    return app.request(`/api/habits/${id}/steps`, {
+      method: 'PUT',
+      headers: { 'content-type': 'application/json', cookie },
+      body: JSON.stringify({ steps }),
+    })
+  }
+
+  beforeAll(async () => {
+    planId = (await readJson<{ habit: { id: number } }>(post('/api/habits', { name: 'Plan the week', kind: 'checklist' }))).habit.id
+  })
+
+  it('creates steps in the order given and makes their count the target', async () => {
+    const { habit } = await readJson<WithSteps>(putSteps(planId, [{ label: 'Open PRs' }, { label: 'Target' }]))
+    expect(habit.steps.map(step => step.label)).toEqual(['Open PRs', 'Target'])
+    expect(habit.target).toBe(2)
+  })
+
+  it('renames, reorders, adds and removes in one call', async () => {
+    const before = (await readJson<WithSteps>(putSteps(planId, [{ label: 'A' }, { label: 'B' }, { label: 'C' }]))).habit.steps
+    const [a, b, c] = before
+    const { habit } = await readJson<WithSteps>(putSteps(planId, [
+      { id: c!.id, label: 'C' }, { id: a!.id, label: 'A renamed' }, { label: 'D' },
+    ]))
+    expect(habit.steps.map(step => step.label)).toEqual(['C', 'A renamed', 'D'])
+    expect(habit.steps.map(step => step.id)).not.toContain(b!.id)
+    expect(habit.target).toBe(3)
+  })
+
+  it('drops a deleted step from past ticks but keeps the day’s count', async () => {
+    const steps = (await readJson<WithSteps>(putSteps(planId, [{ label: 'One' }, { label: 'Two' }]))).habit.steps
+    await app.request('/api/log/2026-02-02', {
+      method: 'PUT',
+      headers: { 'content-type': 'application/json', cookie },
+      body: JSON.stringify({ entries: [{ habitId: planId, steps: steps.map(step => step.id) }] }),
+    })
+
+    await putSteps(planId, [{ id: steps[0]!.id, label: 'One' }])
+
+    const day = await readJson<{ habits: { id: number, entry: { value: number, steps: number[] } }[] }>(
+      app.request('/api/log/2026-02-02', { headers: { cookie } }),
+    )
+    const plan = day.habits.find(h => h.id === planId)!
+    expect(plan.entry.steps).toEqual([steps[0]!.id])
+    expect(plan.entry.value).toBe(2)
+  })
+
+  it('lists each habit with its steps', async () => {
+    const { habits } = await readJson<{ habits: { id: number, steps: StepRow[] }[] }>(
+      app.request('/api/habits', { headers: { cookie } }),
+    )
+    expect(habits.find(h => h.id === planId)!.steps.map(step => step.label)).toEqual(['One'])
+  })
+
+  it('refuses steps on a habit that is not a checklist', async () => {
+    const { habit } = await readJson<{ habit: { id: number } }>(post('/api/habits', { name: 'Plain' }))
+    expect((await putSteps(habit.id, [{ label: 'x' }])).status).toBe(400)
+  })
+
+  it('refuses a step id from another habit', async () => {
+    expect((await putSteps(planId, [{ id: 99999, label: 'x' }])).status).toBe(400)
+  })
+
+  it('refuses an empty label and more than twenty steps', async () => {
+    expect((await putSteps(planId, [{ label: '  ' }])).status).toBe(400)
+    expect((await putSteps(planId, Array.from({ length: 21 }, (_, i) => ({ label: `s${i}` })))).status).toBe(400)
+  })
+
+  it('404s for a habit that does not exist', async () => {
+    expect((await putSteps(999999, [])).status).toBe(404)
+  })
+})

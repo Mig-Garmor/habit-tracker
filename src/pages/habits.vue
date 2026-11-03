@@ -1,7 +1,9 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, onUnmounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
+import HabitScheduleFields from '@/components/HabitScheduleFields.vue'
 import HealthPill from '@/components/HealthPill.vue'
+import StepsEditor, { type StepDraft } from '@/components/StepsEditor.vue'
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
@@ -14,8 +16,8 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import {
-  createHabit, fetchDashboard, fetchHabits, reorderHabits, updateHabit,
-  type Habit, type HabitStatus, type Health,
+  createHabit, fetchDashboard, fetchHabits, reorderHabits, saveSteps, updateHabit,
+  type Habit, type HabitKind, type HabitSlot, type HabitStatus, type Health,
 } from '@/lib/api'
 import { indexForPointer, moveItem } from '@/lib/reorder'
 import { isTruncated, truncateName } from '@/lib/truncate'
@@ -34,9 +36,25 @@ const targetDrafts = ref<Record<number, number | null>>({})
 // Draft values for the inline cadence editor, same shape as targetDrafts.
 const cadenceDrafts = ref<Record<number, number>>({})
 
-const form = ref({
-  name: '', isQuantity: false, unit: 'minutes', target: 10, notesEnabled: false, timesPerWeek: 7,
-})
+const ALL_DAYS = [1, 2, 3, 4, 5, 6, 7]
+
+function blankForm() {
+  return {
+    name: '', kind: 'binary' as HabitKind, unit: 'minutes', target: 10, notesEnabled: false, timesPerWeek: 7,
+    slot: 'evening' as HabitSlot, weekdays: [...ALL_DAYS], question: '',
+  }
+}
+
+const form = ref(blankForm())
+
+interface ScheduleDraft {
+  slot: HabitSlot
+  weekdays: number[]
+  question: string
+}
+
+const scheduleDrafts = ref<Record<number, ScheduleDraft>>({})
+const stepDrafts = ref<Record<number, StepDraft[]>>({})
 
 const draggingId = ref<number | null>(null)
 /**
@@ -246,12 +264,34 @@ function cadenceLabel(habit: Habit): string {
   return habit.timesPerWeek === 7 ? 'daily' : `${habit.timesPerWeek}× / week`
 }
 
-/** What a habit shows instead of its inputs while it is not being edited. */
+const SHORT_DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+
+/** "Mon–Fri" for a run of three or more days, otherwise the days listed. */
+function daysLabel(weekdays: number[]): string {
+  const days = [...weekdays].sort((a, b) => a - b)
+  const isRun = days.every((day, i) => i === 0 || day === days[i - 1]! + 1)
+  if (isRun && days.length >= 3) return `${SHORT_DAYS[days[0]! - 1]}–${SHORT_DAYS[days.at(-1)! - 1]}`
+  return days.map(day => SHORT_DAYS[day - 1]).join(', ')
+}
+
+/**
+ * What a habit shows instead of its inputs while it is not being edited. An
+ * every-day evening habit reads exactly as it did before slots existed (D-28).
+ */
 function summary(habit: Habit): string {
-  if (habit.kind === 'quantity' && habit.target !== null) {
-    return `${habit.target} ${habit.unit ?? ''}`.trim() + `, ${cadenceLabel(habit)}`
-  }
-  return cadenceLabel(habit)
+  const base = habit.kind === 'quantity' && habit.target !== null
+    ? `${habit.target} ${habit.unit ?? ''}`.trim() + `, ${cadenceLabel(habit)}`
+    : cadenceLabel(habit)
+  const weekdays = habit.weekdays ?? ALL_DAYS
+  return [
+    habit.slot === 'morning' ? 'morning' : null,
+    weekdays.length < 7 ? daysLabel(weekdays) : null,
+    base,
+  ].filter(Boolean).join(' · ')
+}
+
+function stepsOf(habit: Habit): StepDraft[] {
+  return (habit.steps ?? []).map(step => ({ id: step.id, label: step.label }))
 }
 
 function startEdit(habit: Habit) {
@@ -259,6 +299,12 @@ function startEdit(habit: Habit) {
   nameDrafts.value[habit.id] = habit.name
   targetDrafts.value[habit.id] = habit.target
   cadenceDrafts.value[habit.id] = habit.timesPerWeek
+  scheduleDrafts.value[habit.id] = {
+    slot: habit.slot ?? 'evening',
+    weekdays: [...(habit.weekdays ?? ALL_DAYS)],
+    question: habit.question ?? '',
+  }
+  stepDrafts.value[habit.id] = stepsOf(habit)
   error.value = null
   editingId.value = habit.id
 }
@@ -285,6 +331,16 @@ async function saveEdit(habit: Habit) {
     error.value = 'A daily target must be greater than zero.'
     return
   }
+  const schedule = scheduleDrafts.value[habit.id]
+  if (schedule && schedule.weekdays.length === 0) {
+    error.value = 'Pick at least one day.'
+    return
+  }
+  const steps = (stepDrafts.value[habit.id] ?? []).map(step => ({ ...step, label: step.label.trim() }))
+  if (steps.some(step => !step.label)) {
+    error.value = 'Every step needs a label.'
+    return
+  }
 
   busyId.value = habit.id
   error.value = null
@@ -295,13 +351,28 @@ async function saveEdit(habit: Habit) {
       name,
       timesPerWeek: cadence,
       ...(habit.kind === 'quantity' ? { target } : {}),
+      ...(schedule ? scheduleChanges(habit, schedule) : {}),
     })
+    // Steps are their own whole-list request (D-35), sent only when they changed.
+    if (habit.kind === 'checklist' && JSON.stringify(steps) !== JSON.stringify(stepsOf(habit))) {
+      await saveSteps(habit.id, steps)
+    }
     editingId.value = null
     await load()
   } catch (e) {
     error.value = e instanceof Error ? e.message : 'Could not save that habit.'
   } finally {
     busyId.value = null
+  }
+}
+
+/** Only what the edit actually changed, so an untouched habit is not rewritten. */
+function scheduleChanges(habit: Habit, draft: ScheduleDraft) {
+  const question = draft.question.trim() || null
+  return {
+    ...(draft.slot !== (habit.slot ?? 'evening') ? { slot: draft.slot } : {}),
+    ...(draft.weekdays.join() !== (habit.weekdays ?? ALL_DAYS).join() ? { weekdays: draft.weekdays } : {}),
+    ...(question !== (habit.question ?? null) ? { question } : {}),
   }
 }
 
@@ -335,18 +406,20 @@ function normalizedCadence(value: number): number {
 async function submit(status: 'active' | 'upcoming') {
   error.value = null
   try {
+    const isQuantity = form.value.kind === 'quantity'
     await createHabit({
       name: form.value.name,
-      kind: form.value.isQuantity ? 'quantity' : 'binary',
-      unit: form.value.isQuantity ? form.value.unit : null,
-      target: form.value.isQuantity ? form.value.target : null,
+      kind: form.value.kind,
+      unit: isQuantity ? form.value.unit : null,
+      target: isQuantity ? form.value.target : null,
       notesEnabled: form.value.notesEnabled,
       timesPerWeek: normalizedCadence(form.value.timesPerWeek),
+      slot: form.value.slot,
+      weekdays: form.value.weekdays,
+      question: form.value.question.trim() || null,
       status,
     })
-    form.value = {
-      name: '', isQuantity: false, unit: 'minutes', target: 10, notesEnabled: false, timesPerWeek: 7,
-    }
+    form.value = blankForm()
     await load()
   } catch (e) {
     error.value = e instanceof Error ? e.message : 'Could not add that habit.'
@@ -433,6 +506,23 @@ onMounted(load)
                   />
                   <span class="habits__cadence-unit">× / week</span>
                 </div>
+                <HabitScheduleFields
+                  v-if="scheduleDrafts[habit.id]"
+                  :id-prefix="`edit-${habit.id}`"
+                  :slot="scheduleDrafts[habit.id]!.slot"
+                  :weekdays="scheduleDrafts[habit.id]!.weekdays"
+                  :question="scheduleDrafts[habit.id]!.question"
+                  :disabled="busyId === habit.id"
+                  @update:slot="scheduleDrafts[habit.id]!.slot = $event"
+                  @update:weekdays="scheduleDrafts[habit.id]!.weekdays = $event"
+                  @update:question="scheduleDrafts[habit.id]!.question = $event"
+                />
+                <StepsEditor
+                  v-if="habit.kind === 'checklist'"
+                  :model-value="stepDrafts[habit.id] ?? []"
+                  :disabled="busyId === habit.id"
+                  @update:model-value="stepDrafts[habit.id] = $event"
+                />
                 </div>
                 <div class="habits__edit-actions">
                 <Button size="sm" :disabled="busyId === habit.id" :data-save="habit.id" @click="saveEdit(habit)">
@@ -537,6 +627,23 @@ onMounted(load)
                   />
                   <span class="habits__cadence-unit">× / week</span>
                 </div>
+                <HabitScheduleFields
+                  v-if="scheduleDrafts[habit.id]"
+                  :id-prefix="`edit-${habit.id}`"
+                  :slot="scheduleDrafts[habit.id]!.slot"
+                  :weekdays="scheduleDrafts[habit.id]!.weekdays"
+                  :question="scheduleDrafts[habit.id]!.question"
+                  :disabled="busyId === habit.id"
+                  @update:slot="scheduleDrafts[habit.id]!.slot = $event"
+                  @update:weekdays="scheduleDrafts[habit.id]!.weekdays = $event"
+                  @update:question="scheduleDrafts[habit.id]!.question = $event"
+                />
+                <StepsEditor
+                  v-if="habit.kind === 'checklist'"
+                  :model-value="stepDrafts[habit.id] ?? []"
+                  :disabled="busyId === habit.id"
+                  @update:model-value="stepDrafts[habit.id] = $event"
+                />
                 </div>
                 <div class="habits__edit-actions">
                 <Button size="sm" :disabled="busyId === habit.id" :data-save="habit.id" @click="saveEdit(habit)">
@@ -618,13 +725,28 @@ onMounted(load)
             <Input id="new-name" v-model="form.name" required placeholder="Read a chapter" />
           </div>
 
-          <label class="habits__toggle">
-            <Checkbox
-              :model-value="form.isQuantity"
-              @update:model-value="form.isQuantity = Boolean($event)"
+          <div class="habits__field">
+            <Label for="new-kind">Kind</Label>
+            <select id="new-kind" v-model="form.kind" class="habits__select">
+              <option value="binary">Tick it off</option>
+              <option value="quantity">Track an amount each day</option>
+              <option value="checklist">Checklist of steps</option>
+              <option value="journal">Write something (done when written)</option>
+            </select>
+          </div>
+
+          <div class="habits__field">
+            <Label for="new-slot">When</Label>
+            <HabitScheduleFields
+              id-prefix="new"
+              :slot="form.slot"
+              :weekdays="form.weekdays"
+              :question="form.question"
+              @update:slot="form.slot = $event"
+              @update:weekdays="form.weekdays = $event"
+              @update:question="form.question = $event"
             />
-            <span>Track an amount each day</span>
-          </label>
+          </div>
 
           <div class="habits__field">
             <Label for="new-cadence">Times a week</Label>
@@ -639,7 +761,7 @@ onMounted(load)
             />
           </div>
 
-          <div v-if="form.isQuantity" class="habits__row habits__row--compact">
+          <div v-if="form.kind === 'quantity'" class="habits__row habits__row--compact">
             <div class="habits__field">
               <Label for="new-unit">Unit</Label>
               <Input id="new-unit" v-model="form.unit" />
@@ -650,7 +772,7 @@ onMounted(load)
             </div>
           </div>
 
-          <label class="habits__toggle">
+          <label v-if="form.kind !== 'journal'" class="habits__toggle">
             <Checkbox
               :model-value="form.notesEnabled"
               @update:model-value="form.notesEnabled = Boolean($event)"
@@ -659,11 +781,11 @@ onMounted(load)
           </label>
 
           <div class="habits__actions">
-            <Button type="submit" :disabled="!form.name.trim()">Add as active</Button>
+            <Button type="submit" :disabled="!form.name.trim() || form.weekdays.length === 0">Add as active</Button>
             <Button
               type="button"
               variant="outline"
-              :disabled="!form.name.trim()"
+              :disabled="!form.name.trim() || form.weekdays.length === 0"
               @click="submit('upcoming')"
             >
               Add to upcoming

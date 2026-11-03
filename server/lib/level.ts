@@ -4,10 +4,12 @@
  * every recorded value untouched.
  */
 
+import type { HabitKind } from '../db/schema.js'
+
 export type ActivityLevel = 0 | 1 | 2 | 3 | 4
 
 export interface LevelHabit {
-  kind: 'binary' | 'quantity'
+  kind: HabitKind
   target: number | null
 }
 
@@ -25,7 +27,10 @@ export function activityLevel(
 ): ActivityLevel {
   if (!entry) return 0
 
-  const hasUsableTarget = habit.kind === 'quantity' && habit.target !== null && habit.target > 0
+  // A checklist's target is its step count and its value the steps ticked
+  // (D-30), so it shades exactly as an amount does.
+  const measured = habit.kind === 'quantity' || habit.kind === 'checklist'
+  const hasUsableTarget = measured && habit.target !== null && habit.target > 0
   if (!hasUsableTarget) {
     return entry.completed ? BINARY_DONE : 0
   }

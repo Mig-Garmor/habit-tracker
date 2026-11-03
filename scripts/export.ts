@@ -2,7 +2,7 @@ import { mkdir, writeFile } from 'node:fs/promises'
 import 'dotenv/config'
 import { asc, sql } from 'drizzle-orm'
 import { databaseHost, db, pool } from '../server/db/client.js'
-import { habitEntries, habits } from '../server/db/schema.js'
+import { habitEntries, habits, habitSteps } from '../server/db/schema.js'
 import { buildBackup } from '../server/lib/backup.js'
 
 /**
@@ -36,15 +36,17 @@ function stamp(iso: string): string {
 
 const exportedAt = new Date().toISOString()
 
-const [habitRows, entryRows, version] = await Promise.all([
+const [habitRows, entryRows, stepRows, version] = await Promise.all([
   db.select().from(habits).orderBy(asc(habits.id)),
   db.select().from(habitEntries).orderBy(asc(habitEntries.id)),
+  db.select().from(habitSteps).orderBy(asc(habitSteps.id)),
   schemaVersion(),
 ])
 
 const backup = buildBackup({
   habits: habitRows,
   entries: entryRows,
+  steps: stepRows,
   exportedAt,
   host: databaseHost(),
   schemaVersion: version,
@@ -55,7 +57,7 @@ const path = `${BACKUPS}/habit-tracker-${stamp(exportedAt)}.json`
 await writeFile(path, `${JSON.stringify(backup, null, 2)}\n`, 'utf8')
 
 console.log(`Wrote ${path}`)
-console.log(`  ${habitRows.length} habit(s), ${entryRows.length} entr(ies)`)
+console.log(`  ${habitRows.length} habit(s), ${entryRows.length} entr(ies), ${stepRows.length} step(s)`)
 console.log(`  from ${backup.host}, schema version ${version}`)
 
 await pool.end()

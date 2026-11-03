@@ -7,12 +7,12 @@ const FROM = '2026-09-07'
 
 const exercise = {
   id: 1, name: 'Exercise', kind: 'binary' as const, unit: null,
-  target: null, notesEnabled: true, activatedAt: '2026-01-01', timesPerWeek: 7,
+  target: null, notesEnabled: true, activatedAt: '2026-01-01', timesPerWeek: 7, slot: 'evening' as const,
 }
 
 const meditation = {
   id: 2, name: 'Meditation', kind: 'quantity' as const, unit: 'minutes',
-  target: 10, notesEnabled: false, activatedAt: '2026-01-01', timesPerWeek: 7,
+  target: 10, notesEnabled: false, activatedAt: '2026-01-01', timesPerWeek: 7, slot: 'evening' as const,
 }
 
 function entry(habitId: number, date: string, value: number | null, note: string | null = null) {

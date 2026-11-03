@@ -1,6 +1,9 @@
 import { sql, type SQL } from 'drizzle-orm'
 import { z } from 'zod'
-import { habitEntries, habitKinds, habits, habitStatuses, type Habit, type HabitEntry } from '../db/schema.js'
+import {
+  habitEntries, habitKinds, habits, habitSlots, habitStatuses, habitSteps,
+  type Habit, type HabitEntry, type HabitStep,
+} from '../db/schema.js'
 
 /**
  * Only what a restore actually needs from a transaction.
@@ -11,9 +14,10 @@ import { habitEntries, habitKinds, habits, habitStatuses, type Habit, type Habit
  * database that must not be used as a test subject.
  */
 interface RestoreTx {
-  delete(table: typeof habits | typeof habitEntries): PromiseLike<unknown>
+  delete(table: typeof habits | typeof habitEntries | typeof habitSteps): PromiseLike<unknown>
   insert(table: typeof habits): { values(rows: Backup['habits']): PromiseLike<unknown> }
   insert(table: typeof habitEntries): { values(rows: Backup['entries']): PromiseLike<unknown> }
+  insert(table: typeof habitSteps): { values(rows: Backup['steps']): PromiseLike<unknown> }
   execute(query: SQL): PromiseLike<unknown>
 }
 
@@ -43,7 +47,20 @@ const habitSchema = z.object({
   activatedAt: z.string().nullable(),
   position: z.number().int(),
   timesPerWeek: z.number().int().min(1).max(7),
+  // Defaulted rather than required: files written before these columns
+  // existed are still valid backups, and these are the values migration 0003
+  // gave every habit that was already there.
+  slot: z.enum([...habitSlots]).default('evening'),
+  weekdays: z.array(z.number().int().min(1).max(7)).default([1, 2, 3, 4, 5, 6, 7]),
+  question: z.string().nullable().default(null),
   createdAt: z.string(),
+})
+
+const stepSchema = z.object({
+  id: z.number().int().positive(),
+  habitId: z.number().int().positive(),
+  label: z.string(),
+  position: z.number().int(),
 })
 
 const entrySchema = z.object({
@@ -53,6 +70,7 @@ const entrySchema = z.object({
   completed: z.boolean(),
   value: z.number().nullable(),
   note: z.string().nullable(),
+  steps: z.array(z.number().int()).nullable().default(null),
 })
 
 export const backupSchema = z.object({
@@ -69,6 +87,7 @@ export const backupSchema = z.object({
   schemaVersion: z.number().int().nonnegative(),
   habits: z.array(habitSchema),
   entries: z.array(entrySchema),
+  steps: z.array(stepSchema).default([]),
 })
 
 export type Backup = z.infer<typeof backupSchema>
@@ -76,6 +95,7 @@ export type Backup = z.infer<typeof backupSchema>
 export function buildBackup(input: {
   habits: Habit[]
   entries: HabitEntry[]
+  steps?: HabitStep[]
   exportedAt: string
   host: string
   schemaVersion: number
@@ -87,6 +107,7 @@ export function buildBackup(input: {
     schemaVersion: input.schemaVersion,
     habits: input.habits,
     entries: input.entries,
+    steps: input.steps ?? [],
   }
 }
 
@@ -116,6 +137,13 @@ export function parseBackup(value: unknown): Backup {
     )
   }
 
+  const orphanStep = backup.steps.find(step => !habitIds.has(step.habitId))
+  if (orphanStep) {
+    throw new BackupError(
+      `Step ${orphanStep.id} refers to habit ${orphanStep.habitId}, which is not in the file.`,
+    )
+  }
+
   return backup
 }
 
@@ -141,14 +169,17 @@ export async function restoreBackup(tx: RestoreTx, backup: Backup): Promise<void
   // Entries first even though the foreign key cascades: being explicit costs
   // nothing and does not depend on the cascade staying in place.
   await tx.delete(habitEntries)
+  await tx.delete(habitSteps)
   await tx.delete(habits)
 
   if (backup.habits.length > 0) await tx.insert(habits).values(backup.habits)
   if (backup.entries.length > 0) await tx.insert(habitEntries).values(backup.entries)
+  if (backup.steps.length > 0) await tx.insert(habitSteps).values(backup.steps)
 
   // Ids were inserted explicitly, so the sequences still sit where they were.
   // Without this the next habit created collides with a restored one — which
   // surfaces long after the restore, as a confusing constraint violation.
   await tx.execute(sql`select setval('habits_id_seq', ${nextId(backup.habits)}, false)`)
   await tx.execute(sql`select setval('habit_entries_id_seq', ${nextId(backup.entries)}, false)`)
+  await tx.execute(sql`select setval('habit_steps_id_seq', ${nextId(backup.steps)}, false)`)
 }

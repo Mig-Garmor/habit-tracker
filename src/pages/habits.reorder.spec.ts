@@ -27,6 +27,10 @@ function habit(id: number, name: string): Habit {
     activatedAt: '2026-09-01',
     createdAt: '2026-09-01T00:00:00.000Z',
     timesPerWeek: 7,
+    slot: 'evening',
+    weekdays: [1, 2, 3, 4, 5, 6, 7],
+    question: null,
+    steps: [],
   }
 }
 

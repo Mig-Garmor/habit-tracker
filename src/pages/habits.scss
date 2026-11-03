@@ -151,6 +151,10 @@
     @apply flex flex-1 flex-col gap-1.5;
   }
 
+  &__select {
+    @apply h-9 rounded-md border bg-background px-2 text-sm;
+  }
+
   &__toggle {
     @apply flex cursor-pointer items-center gap-2 text-sm;
   }

@@ -1,0 +1,115 @@
+.dashboard {
+  /* gap-2, not gap-4: with six habits on screen the gaps alone were costing
+     more vertical space than a whole habit. */
+  /* max-w-xl, not 3xl: the row holds a text column and a ~210px grid, about
+     450px of content. Stretched across 768px the two sat at opposite edges
+     with a void between them — the same whitespace problem, turned sideways. */
+  @apply mx-auto flex w-full max-w-xl flex-col gap-2;
+
+  &__slot {
+    @apply flex flex-col gap-2;
+  }
+
+  &__slot-title {
+    @apply mt-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground;
+  }
+
+  &__habit {
+    /* Row, not column: the height becomes the taller of the text and the grid
+       rather than their sum, which is what makes six fit while letting the
+       squares get BIGGER than the one-line version allowed. */
+    @apply flex items-center gap-2 rounded-lg border p-2;
+
+    @screen sm {
+      @apply gap-3 p-3;
+    }
+
+    /* Done today: still there to look at, no longer asking to be looked at.
+
+       One opacity on the whole card rather than an overlay over it. An
+       overlay would sit on top of the activity squares, which are links, and
+       would swallow every click on them unless it opted out of pointer
+       events — a trap that only shows up when someone tries to click. Fading
+       the card has no such edge, and fades the border with it. */
+    &--done {
+      @apply opacity-60;
+    }
+  }
+
+  &__habit-info {
+    /* min-w-0 so the truncation below actually engages — a flex child defaults
+       to min-width:auto and refuses to shrink below its content. */
+    @apply flex min-w-0 flex-1 flex-col gap-0.5;
+  }
+
+  &__habit-name {
+    @apply truncate text-sm font-semibold;
+  }
+
+  &__habit-facts {
+    @apply truncate text-xs tabular-nums text-muted-foreground;
+  }
+
+  &__habit-pill {
+    @apply self-start;
+  }
+
+  &__habit-grid {
+    @apply shrink-0;
+  }
+
+  &__state {
+    @apply py-6 text-sm text-muted-foreground;
+
+    &--error {
+      @apply flex flex-col items-start gap-3 text-destructive;
+    }
+  }
+
+  &__error {
+    @apply rounded-md border p-3 text-sm text-destructive;
+    border-color: hsl(var(--destructive) / 0.4);
+  }
+
+  &__warnings {
+    @apply rounded-lg border p-4;
+    border-color: hsl(var(--destructive) / 0.4);
+    background-color: hsl(var(--destructive) / 0.06);
+  }
+
+  &__warnings-title {
+    @apply text-sm font-semibold text-destructive;
+  }
+
+  &__warnings-lead {
+    @apply mt-1 text-sm text-muted-foreground;
+  }
+
+  &__warnings-list {
+    @apply mt-3 flex flex-col gap-2;
+  }
+
+  &__warning {
+    @apply flex flex-wrap items-center gap-x-3 gap-y-2;
+  }
+
+  &__warning-name {
+    @apply text-sm font-medium;
+  }
+
+  &__warning-rate {
+    @apply flex-1 text-sm tabular-nums text-muted-foreground;
+  }
+
+  &__habit-header {
+    @apply flex-row items-center justify-between gap-3 space-y-0;
+  }
+
+  &__cadence {
+    @apply ml-2 text-sm font-normal text-muted-foreground;
+  }
+
+  &__habit-meta {
+    @apply mb-3 text-sm tabular-nums text-muted-foreground;
+  }
+}
