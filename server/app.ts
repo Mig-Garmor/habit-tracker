@@ -5,6 +5,7 @@ import { authRoutes } from './routes/auth.js'
 import { dashboardRoutes } from './routes/dashboard.js'
 import { habitsRoutes } from './routes/habits.js'
 import { logRoutes } from './routes/log.js'
+import { todayRoutes } from './routes/today.js'
 
 /**
  * Builds the API. Kept separate from index.ts so tests can call app.request()
@@ -33,6 +34,7 @@ export function createApp() {
   app.route('/api/habits', habitsRoutes)
   app.route('/api/dashboard', dashboardRoutes)
   app.route('/api/log', logRoutes)
+  app.route('/api/today', todayRoutes)
 
   app.onError((err, c) => {
     // Never log the whole error object: a failed Neon connection can carry
