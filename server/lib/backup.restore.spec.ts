@@ -1,6 +1,6 @@
 import { asc, sql } from 'drizzle-orm'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { habitEntries, habits } from '../db/schema.js'
+import { habitEntries, habits, habitSteps } from '../db/schema.js'
 import { createTestDb } from '../test/pg-harness.js'
 import { buildBackup, restoreBackup, type Backup } from './backup.js'
 
@@ -20,25 +20,30 @@ const HABITS = [
   {
     id: 2, name: 'Exercise', kind: 'binary' as const, unit: null, target: null,
     notesEnabled: true, status: 'active' as const, activatedAt: '2026-09-01',
-    position: 0, timesPerWeek: 4,
+    position: 0, timesPerWeek: 4, slot: 'evening' as const, weekdays: [1, 2, 3, 4, 5, 6, 7], question: null,
     createdAt: '2026-09-01T00:00:00.000Z',
   },
   {
     id: 8, name: 'Upload a video', kind: 'binary' as const, unit: null, target: null,
     notesEnabled: false, status: 'upcoming' as const, activatedAt: null,
-    position: 1, timesPerWeek: 1,
+    position: 1, timesPerWeek: 1, slot: 'evening' as const, weekdays: [1, 2, 3, 4, 5, 6, 7], question: null,
     createdAt: '2026-09-01T00:00:00.000Z',
   },
 ]
 
 const ENTRIES = [
-  { id: 4, habitId: 2, date: '2026-09-10', completed: true, value: null, note: 'legs' },
+  { id: 4, habitId: 2, date: '2026-09-10', completed: true, value: null, note: 'legs', steps: null as number[] | null },
 ]
 
-function backupOf(habitRows: typeof HABITS, entryRows: typeof ENTRIES): Backup {
+function backupOf(
+  habitRows: Backup['habits'],
+  entryRows: Backup['entries'],
+  stepRows: Backup['steps'] = [],
+): Backup {
   return buildBackup({
     habits: habitRows,
     entries: entryRows,
+    steps: stepRows,
     exportedAt: '2026-09-13T12:00:00.000Z',
     host: 'ep-test.neon.tech',
     schemaVersion: 3,
@@ -56,6 +61,25 @@ afterEach(async () => {
 })
 
 describe('restoreBackup', () => {
+  it('restores checklist steps and the ticks that point at them', async () => {
+    const checklist = [{ ...HABITS[0]!, kind: 'checklist' as const, target: 2 }]
+    const ticked = [{ ...ENTRIES[0]!, value: 1, steps: [11] }]
+    const steps = [
+      { id: 11, habitId: 2, label: 'Check open PRs', position: 0 },
+      { id: 12, habitId: 2, label: 'Decide the target', position: 1 },
+    ]
+
+    await db.transaction(tx => restoreBackup(tx, backupOf(checklist, ticked, steps)))
+
+    expect(await db.select().from(habitSteps).orderBy(asc(habitSteps.id))).toEqual(steps)
+    expect((await db.select().from(habitEntries))[0]!.steps).toEqual([11])
+
+    // Same reason as the habit sequence below: a step added after a restore
+    // must not collide with a restored id.
+    const [created] = await db.insert(habitSteps).values({ habitId: 2, label: 'New', position: 2 }).returning()
+    expect(created!.id).toBe(13)
+  })
+
   it('fills an empty database', async () => {
     await db.transaction(tx => restoreBackup(tx, backupOf(HABITS, ENTRIES)))
 

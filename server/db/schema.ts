@@ -1,10 +1,13 @@
+import { sql } from 'drizzle-orm'
 import { boolean, doublePrecision, integer, pgTable, serial, text, timestamp, uniqueIndex } from 'drizzle-orm/pg-core'
 
-export const habitKinds = ['binary', 'quantity'] as const
+export const habitKinds = ['binary', 'quantity', 'checklist', 'journal'] as const
 export const habitStatuses = ['active', 'upcoming', 'archived'] as const
+export const habitSlots = ['morning', 'evening'] as const
 
 export type HabitKind = (typeof habitKinds)[number]
 export type HabitStatus = (typeof habitStatuses)[number]
+export type HabitSlot = (typeof habitSlots)[number]
 
 export const habits = pgTable('habits', {
   id: serial('id').primaryKey(),
@@ -37,6 +40,15 @@ export const habits = pgTable('habits', {
    * "daily" special case (D-26).
    */
   timesPerWeek: integer('times_per_week').notNull().default(7),
+  /** Which part of the day the habit belongs to (D-28). Existing habits are evening. */
+  slot: text('slot', { enum: habitSlots }).notNull().default('evening'),
+  /**
+   * ISO weekdays the habit is listed on, 1 = Monday (D-27). Visibility only —
+   * scoring still reads `timesPerWeek` and nothing else.
+   */
+  weekdays: integer('weekdays').array().notNull().default(sql`'{1,2,3,4,5,6,7}'`),
+  /** A prompt shown with the habit and read back over MCP (D-36). */
+  question: text('question'),
   createdAt: timestamp('created_at', { mode: 'string', withTimezone: true })
     .notNull()
     .defaultNow(),
@@ -56,9 +68,22 @@ export const habitEntries = pgTable(
     /** Minutes, reps, … for quantity habits. Null for binary. */
     value: doublePrecision('value'),
     note: text('note'),
+    /** Ids of the checklist steps ticked that day (D-30). Null for other kinds. */
+    steps: integer('steps').array(),
   },
   t => [uniqueIndex('habit_entries_habit_date_idx').on(t.habitId, t.date)],
 )
 
+/** The ordered steps of a checklist habit (D-30). */
+export const habitSteps = pgTable('habit_steps', {
+  id: serial('id').primaryKey(),
+  habitId: integer('habit_id')
+    .notNull()
+    .references(() => habits.id, { onDelete: 'cascade' }),
+  label: text('label').notNull(),
+  position: integer('position').notNull().default(0),
+})
+
 export type Habit = typeof habits.$inferSelect
 export type HabitEntry = typeof habitEntries.$inferSelect
+export type HabitStep = typeof habitSteps.$inferSelect

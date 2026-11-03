@@ -4,10 +4,12 @@
  * every recorded value untouched.
  */
 
+import type { HabitKind } from '../db/schema.js'
+
 export type ActivityLevel = 0 | 1 | 2 | 3 | 4
 
 export interface LevelHabit {
-  kind: 'binary' | 'quantity'
+  kind: HabitKind
   target: number | null
 }
 

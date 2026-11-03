@@ -1,3 +1,4 @@
+import type { HabitKind } from '../db/schema.js'
 import {
   classifyHealth, completionRate, currentStreak, summariseWeeks, type Health, type WeekSummary,
 } from './consistency.js'
@@ -7,7 +8,7 @@ import { activityLevel, type ActivityLevel } from './level.js'
 export interface DashboardHabitInput {
   id: number
   name: string
-  kind: 'binary' | 'quantity'
+  kind: HabitKind
   unit: string | null
   target: number | null
   notesEnabled: boolean

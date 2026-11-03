@@ -22,6 +22,13 @@
       "when": 1789307722100,
       "tag": "0002_clear_zarda",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1793692411091,
+      "tag": "0003_glamorous_vector",
+      "breakpoints": true
     }
   ]
 }

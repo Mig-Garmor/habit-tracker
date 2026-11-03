@@ -14,13 +14,16 @@ function habit(overrides: Partial<Habit> = {}): Habit {
     activatedAt: '2026-09-01',
     position: 0,
     timesPerWeek: 4,
+    slot: 'evening',
+    weekdays: [1, 2, 3, 4, 5, 6, 7],
+    question: null,
     createdAt: '2026-09-01T00:00:00.000Z',
     ...overrides,
   }
 }
 
 function entry(overrides: Partial<HabitEntry> = {}): HabitEntry {
-  return { id: 1, habitId: 1, date: '2026-09-10', completed: true, value: null, note: null, ...overrides }
+  return { id: 1, habitId: 1, date: '2026-09-10', completed: true, value: null, note: null, steps: null, ...overrides }
 }
 
 function backup(overrides: Record<string, unknown> = {}) {
@@ -108,5 +111,46 @@ describe('nextId', () => {
 
   it('is 1 for an empty table, which is where a sequence starts', () => {
     expect(nextId([])).toBe(1)
+  })
+})
+
+describe('backups and checklist steps', () => {
+  it('reads a file written before slots and steps existed, with the defaults a migration gives', () => {
+    const old = backup() as Record<string, unknown> & { habits: Record<string, unknown>[], entries: Record<string, unknown>[] }
+    delete old.steps
+    for (const row of old.habits) {
+      delete row.slot
+      delete row.weekdays
+      delete row.question
+    }
+    for (const row of old.entries) delete row.steps
+
+    const parsed = parseBackup(old)
+
+    expect(parsed.habits[0]).toMatchObject({ slot: 'evening', weekdays: [1, 2, 3, 4, 5, 6, 7], question: null })
+    expect(parsed.entries[0]!.steps).toBeNull()
+    expect(parsed.steps).toEqual([])
+  })
+
+  it('carries steps through build and parse', () => {
+    const built = buildBackup({
+      habits: [habit({ kind: 'checklist', target: 1 })],
+      entries: [entry({ value: 1, steps: [5] })],
+      steps: [{ id: 5, habitId: 1, label: 'Check open PRs', position: 0 }],
+      exportedAt: '2026-11-03T08:00:00.000Z',
+      host: 'ep-test.neon.tech',
+      schemaVersion: 4,
+    })
+
+    expect(parseBackup(JSON.parse(JSON.stringify(built))).steps).toEqual([
+      { id: 5, habitId: 1, label: 'Check open PRs', position: 0 },
+    ])
+  })
+
+  it('refuses a step whose habit is not in the file', () => {
+    const file = backup({ steps: [{ id: 5, habitId: 42, label: 'Orphan', position: 0 }] })
+
+    expect(() => parseBackup(file)).toThrow(BackupError)
+    expect(() => parseBackup(file)).toThrow(/Step 5 refers to habit 42/)
   })
 })
