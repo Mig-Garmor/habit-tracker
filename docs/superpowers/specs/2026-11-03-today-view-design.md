@@ -65,7 +65,9 @@ new `habit_steps` table with their own ids. A day's entry stores the ids that we
 
 That makes a checklist shade exactly like a quantity habit (D-2) with no new grid logic, and,
 like raising a quantity target, adding a step re-shades history without rewriting it.
-`completed` = at least one step ticked — D-1's "showed up" rule, chosen explicitly. The
+`completed` = at least one step ticked — D-1's "showed up" rule, chosen explicitly. A checklist
+with no steps yet (the team check-in before names are added) behaves as a plain tick, so it is
+never un-completable. The
 completion bar (D-33) still counts steps, so 2 of 5 reads as partial there.
 
 A checklist may also have notes enabled — "Plan the week" uses its note for the week's
