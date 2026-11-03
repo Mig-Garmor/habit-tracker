@@ -178,3 +178,11 @@ describe('log_habit', () => {
     expect(result.isError).toBe(true)
   })
 })
+
+describe('get_today for the current day (review I3)', () => {
+  it('says which part of the day is in focus, in the text as well', async () => {
+    const result = await call('get_today')
+    expect(['morning', 'evening']).toContain(result.structuredContent.front)
+    expect(result.content[0]!.text).toContain(`In focus now: ${result.structuredContent.front}`)
+  })
+})

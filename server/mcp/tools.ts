@@ -109,7 +109,8 @@ export const TOOLS: Tool[] = [
       const front = date !== now.date ? null : !day.morningVisible || now.hour >= EVENING_STARTS_AT ? 'evening' : 'morning'
       const line = (slot: 'morning' | 'evening') =>
         `${slot}: ${day.slots[slot].done}/${day.slots[slot].total} — ${day.slots[slot].habits.map(h => `${h.entry?.completed ? '✓' : '·'} ${h.name}`).join(', ') || 'nothing'}`
-      return ok([date, ...(day.morningVisible ? [line('morning')] : []), line('evening')].join('\n'), { ...day, front })
+      const lines = [date, ...(front ? [`In focus now: ${front}`] : []), ...(day.morningVisible ? [line('morning')] : []), line('evening')]
+      return ok(lines.join('\n'), { ...day, front })
     },
   ),
   tool(

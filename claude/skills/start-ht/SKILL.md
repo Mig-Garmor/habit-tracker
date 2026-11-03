@@ -23,6 +23,8 @@ claude mcp add --transport http habit-tracker https://<habit-tracker-host>/api/m
 
 Call these; none needs arguments (dates default to today in the user's zone):
 
+- `get_today` — its `front` (also the "In focus now" line) says which part of the day is in
+  focus, in the user's time zone. Never work this out from your own clock.
 - `get_daily_report` — the fixed report; keep its text for section 1 below.
 - `get_week_objectives` — this week's targets. `stale: true` means none were written this week.
 - `get_team_initiatives` with `limit: 3` — what the team is moving towards.
@@ -34,7 +36,8 @@ Call these; none needs arguments (dates default to today in the user's zone):
 
 **Pull requests** — open PRs in `Catena-Media/catena-unicorn`
 (https://github.com/Catena-Media/catena-unicorn/pulls). Use the GitHub MCP tools if present,
-otherwise `gh pr list --repo Catena-Media/catena-unicorn --state open --json number,title,author,createdAt,url,isDraft,reviewDecision`.
+otherwise `gh pr list --repo Catena-Media/catena-unicorn --state open --limit 200 --json number,title,author,createdAt,url,isDraft,reviewDecision`
+(the limit matters: the default 30 are the newest, and the old ones are what this looks for).
 Flag every non-draft PR **opened more than 7 days ago**, oldest first, marking which belong to
 team members. Note the review state (approved / changes requested / waiting).
 
@@ -42,8 +45,11 @@ team members. Note the review state (approved / changes requested / waiting).
 using the Atlassian/Jira tools if connected. JQL:
 `project = COS AND statusCategory = "In Progress" ORDER BY assignee`.
 Count tickets per assignee for the team members only. **More than 2 in progress for one person
-is a flag.** If no Jira tools are available, say so in the report and carry on — never guess
-the numbers.
+is a flag.**
+
+**If either source cannot be read** — no tools, an auth error, a repo or board not found — write
+"could not check: <reason>" under that heading and carry on. Never write "none" for something
+you did not manage to look at, and never guess the numbers.
 
 ## 3. Judge
 
@@ -61,7 +67,7 @@ the numbers.
 # Daily review — <Weekday YYYY-MM-DD>
 
 ## 1. Focus now
-<the in-focus part of the day from get_daily_report: habits not yet done, with their questions>
+<the part of the day get_today says is in focus: its habits not yet done, with their questions>
 
 ## 2. Needs attention
 ### PRs open more than 7 days
@@ -83,13 +89,18 @@ the numbers.
 - <ones raised by sections 2–5>
 ```
 
-Write "none" under a heading that has nothing, never drop the heading.
+Write "none" under a heading only when you checked and found nothing; never drop the heading.
 
 ## 5. Offer to write it down
 
-Ask whether to record anything, then use `log_habit`:
+Ask whether to record anything, then use `log_habit`. It **replaces** what is there: `steps`
+is the full set for the day and `note` is the whole note. So first read today's entry from
+`get_today` (each habit's `entry`):
+
+- checked people → `habit: "Check what each team member is working on"`, `steps:` the names
+  already ticked **plus** the new ones.
 - the team recap → `habit: "Recap team initiatives", note: …`
-- checked people → `habit: "Check what each team member is working on", steps: [names]`
 - the end of the day → `habit: "What did I do today", note: …`
 
-Never log without the user's yes.
+If a note already has text today, show it and ask whether to add to it or replace it. Never
+log without the user's yes.
