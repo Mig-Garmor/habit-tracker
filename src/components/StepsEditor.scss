@@ -1,0 +1,15 @@
+.steps-editor {
+  @apply flex w-full flex-col gap-1.5;
+
+  &__list {
+    @apply flex flex-col gap-1.5;
+  }
+
+  &__row {
+    @apply flex items-center gap-1;
+  }
+
+  &__label {
+    @apply flex-1 text-sm;
+  }
+}

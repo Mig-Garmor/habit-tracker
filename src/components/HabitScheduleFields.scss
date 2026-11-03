@@ -1,0 +1,23 @@
+.schedule-fields {
+  @apply flex flex-wrap items-center gap-2;
+
+  &__slot {
+    @apply h-9 rounded-md border bg-background px-2 text-sm;
+  }
+
+  &__days {
+    @apply flex gap-1;
+  }
+
+  &__day {
+    @apply h-8 w-8 rounded-md border text-xs font-medium text-muted-foreground transition-colors;
+
+    &--on {
+      @apply border-primary bg-primary text-primary-foreground;
+    }
+  }
+
+  &__question {
+    @apply min-w-48 flex-1 text-sm;
+  }
+}
