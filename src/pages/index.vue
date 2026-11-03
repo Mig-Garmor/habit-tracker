@@ -32,15 +32,20 @@ const visibleSlots = computed(() =>
   SLOTS.filter(({ slot }) => slot === 'evening' || (data.value?.morningVisible ?? false)),
 )
 
+/** Only the newest load may land; an older answer arriving late is dropped. */
+let latestLoad = 0
+
 async function load(quiet = false) {
+  const mine = ++latestLoad
   if (!quiet) loading.value = true
   error.value = null
   try {
-    data.value = await fetchToday(date.value)
+    const fresh = await fetchToday(date.value)
+    if (mine === latestLoad) data.value = fresh
   } catch (e) {
-    error.value = e instanceof Error ? e.message : 'Could not load today.'
+    if (mine === latestLoad) error.value = e instanceof Error ? e.message : 'Could not load today.'
   } finally {
-    loading.value = false
+    if (mine === latestLoad) loading.value = false
   }
 }
 
@@ -55,7 +60,12 @@ let timer: ReturnType<typeof setInterval> | null = null
 onMounted(() => {
   void load()
   timer = setInterval(() => {
+    const before = date.value
     now.value = new Date()
+    // Already behind before this tick — the server refused the new day around
+    // midnight, say — so try again rather than saving to yesterday all day.
+    // A date that changes on this tick is the watcher's to load, not ours.
+    if (data.value && data.value.date !== before) void load(true)
   }, CLOCK_TICK)
 })
 
@@ -91,6 +101,7 @@ onUnmounted(() => {
             :habit="habit"
             :date="data.date"
             @saved="load(true)"
+            @refresh="load(true)"
           />
         </section>
 

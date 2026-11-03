@@ -118,3 +118,43 @@ describe('the Today view (D-29)', () => {
     expect(fetchToday).toHaveBeenCalledWith('2026-11-03')
   })
 })
+
+describe('keeping the page current', () => {
+  it('shows the newest answer when two reloads finish out of order (review I1)', async () => {
+    const wrapper = await mountAt(new Date(2026, 10, 3, 9, 0))
+    const slow = deferred<TodayResponse>()
+    const fast = deferred<TodayResponse>()
+    fetchToday.mockReturnValueOnce(slow.promise).mockReturnValueOnce(fast.promise)
+
+    const row = wrapper.findComponent({ name: 'TodayHabit' })
+    row.vm.$emit('saved')
+    row.vm.$emit('saved')
+    const newer = day('2026-11-03')
+    newer.slots.morning.habits[0]!.name = 'Newest'
+    fast.resolve(newer)
+    await flushPromises()
+    slow.resolve(day('2026-11-03'))
+    await flushPromises()
+
+    expect(expandedNames(wrapper)[0]).toBe('Newest')
+  })
+
+  it('keeps trying the new day if the server refused it at midnight (review I3)', async () => {
+    await mountAt(new Date(2026, 10, 3, 23, 59, 30))
+    fetchToday.mockRejectedValueOnce(new Error('Cannot log a future day'))
+    vi.advanceTimersByTime(60_000)
+    await flushPromises()
+    expect(fetchToday).toHaveBeenLastCalledWith('2026-11-04')
+
+    fetchToday.mockClear()
+    vi.advanceTimersByTime(60_000)
+    await flushPromises()
+    expect(fetchToday).toHaveBeenCalledWith('2026-11-04')
+  })
+})
+
+function deferred<T>() {
+  let resolve!: (value: T) => void
+  const promise = new Promise<T>(r => { resolve = r })
+  return { promise, resolve }
+}

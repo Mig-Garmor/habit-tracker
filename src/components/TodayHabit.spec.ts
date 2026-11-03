@@ -159,3 +159,82 @@ describe('what the row says', () => {
     expect(saveLog).toHaveBeenCalledWith(DATE, [{ habitId: 1, value: 10 }])
   })
 })
+
+/** A save the test resolves by hand, to hold a request in flight. */
+function deferred() {
+  let resolve!: (value: unknown) => void
+  const promise = new Promise(r => { resolve = r })
+  return { promise, resolve }
+}
+
+describe('saves in flight (review I1, I2)', () => {
+  const steps = [{ id: 11, label: 'Open PRs' }, { id: 12, label: 'Target' }]
+
+  it('sends quick ticks one after another, each building on the last', async () => {
+    const first = deferred()
+    saveLog.mockReturnValueOnce(first.promise)
+    const wrapper = mountRow({ kind: 'checklist', target: 2, steps })
+    const boxes = () => wrapper.findAll('[role="checkbox"]')
+
+    await boxes()[0]!.trigger('click')
+    await boxes()[1]!.trigger('click')
+    await flushPromises()
+    expect(saveLog).toHaveBeenCalledTimes(1)
+
+    first.resolve({})
+    await flushPromises()
+    expect(saveLog).toHaveBeenNthCalledWith(1, DATE, [{ habitId: 1, steps: [11] }])
+    expect(saveLog).toHaveBeenNthCalledWith(2, DATE, [{ habitId: 1, steps: [11, 12] }])
+  })
+
+  it('does not let a refetch from before the last save untick anything', async () => {
+    const first = deferred()
+    saveLog.mockReturnValueOnce(first.promise)
+    const wrapper = mountRow({ kind: 'checklist', target: 2, steps })
+    await wrapper.findAll('[role="checkbox"]')[0]!.trigger('click')
+
+    await wrapper.setProps({ habit: habit({ kind: 'checklist', target: 2, steps, entry: null }) })
+    expect(wrapper.findAll('[role="checkbox"]')[0]!.attributes('aria-checked')).toBe('true')
+    first.resolve({})
+    await flushPromises()
+  })
+
+  it('tells the page only once everything has saved', async () => {
+    const first = deferred()
+    saveLog.mockReturnValueOnce(first.promise)
+    const wrapper = mountRow({ kind: 'checklist', target: 2, steps })
+    await wrapper.findAll('[role="checkbox"]')[0]!.trigger('click')
+    await wrapper.findAll('[role="checkbox"]')[1]!.trigger('click')
+    first.resolve({})
+    await flushPromises()
+
+    expect(wrapper.emitted('saved')).toHaveLength(1)
+  })
+
+  it('keeps typing that happened while an earlier save was out', async () => {
+    const first = deferred()
+    saveLog.mockReturnValueOnce(first.promise)
+    const wrapper = mountRow({ kind: 'journal', notesEnabled: true })
+    await wrapper.find('textarea').setValue('abc')
+    vi.advanceTimersByTime(800)
+    await wrapper.find('textarea').setValue('abcd')
+
+    first.resolve({})
+    await flushPromises()
+    await wrapper.setProps({ habit: habit({ kind: 'journal', notesEnabled: true, entry: { completed: true, value: null, note: 'abc' } }) })
+    expect((wrapper.find('textarea').element as HTMLTextAreaElement).value).toBe('abcd')
+
+    vi.advanceTimersByTime(800)
+    await flushPromises()
+    expect(saveLog).toHaveBeenLastCalledWith(DATE, [{ habitId: 1, note: 'abcd' }])
+  })
+
+  it('asks the page to reload when a save is refused (review I4)', async () => {
+    saveLog.mockRejectedValueOnce(new Error('Step 12 does not belong to habit 1'))
+    const wrapper = mountRow({ kind: 'checklist', target: 2, steps })
+    await wrapper.findAll('[role="checkbox"]')[1]!.trigger('click')
+    await flushPromises()
+
+    expect(wrapper.emitted('refresh')).toHaveLength(1)
+  })
+})

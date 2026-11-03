@@ -7,7 +7,12 @@ import { Textarea } from '@/components/ui/textarea'
 import { saveLog, type LogEntryInput, type TodayHabit } from '@/lib/api'
 
 const props = defineProps<{ habit: TodayHabit, date: string }>()
-const emit = defineEmits<{ saved: [] }>()
+const emit = defineEmits<{
+  /** Everything this row sent has been saved. */
+  saved: []
+  /** A save was refused, so what the row shows may be stale. */
+  refresh: []
+}>()
 
 /** How long typing has to pause before a note saves itself (D-34). */
 const NOTE_SAVE_DELAY = 800
@@ -20,11 +25,18 @@ const ticked = ref<number[]>([])
 const note = ref('')
 const error = ref<string | null>(null)
 const noteUnsaved = ref(false)
+/** Saves queued or in flight for this row. */
+const pending = ref(0)
 
-/** Re-seeded from every refetch, so the row always shows what the server holds. */
+/**
+ * Re-seeded from every refetch, so the row shows what the server holds — but
+ * never while this row still has saves out: a refetch that started before the
+ * last of them would otherwise untick what was just ticked.
+ */
 watch(
   () => props.habit,
   habit => {
+    if (pending.value > 0) return
     completed.value = habit.entry?.completed ?? false
     value.value = habit.entry?.value ?? null
     ticked.value = habit.entry?.steps ?? []
@@ -47,18 +59,34 @@ const carriedLabel = computed(() => {
   return `from ${WEEKDAYS[new Date(year!, month! - 1, day!).getDay()]}`
 })
 
-/** One habit, one entry: a failed save can only ever undo this row (D-34). */
-async function save(entry: Omit<LogEntryInput, 'habitId'>, revert: () => void): Promise<boolean> {
-  error.value = null
-  try {
-    await saveLog(props.date, [{ habitId: props.habit.id, ...entry }])
-    emit('saved')
-    return true
-  } catch (e) {
-    revert()
-    error.value = e instanceof Error ? e.message : 'Could not save that.'
-    return false
-  }
+let queue: Promise<unknown> = Promise.resolve()
+
+/**
+ * One habit, one entry: a failed save can only ever undo this row (D-34).
+ * Saves go out one at a time, in order, so a quick second tick can never
+ * commit before the first.
+ */
+function save(entry: Omit<LogEntryInput, 'habitId'>, revert: () => void): Promise<boolean> {
+  pending.value++
+  const run = queue.then(async () => {
+    error.value = null
+    try {
+      await saveLog(props.date, [{ habitId: props.habit.id, ...entry }])
+      return true
+    } catch (e) {
+      revert()
+      error.value = e instanceof Error ? e.message : 'Could not save that.'
+      emit('refresh')
+      return false
+    } finally {
+      pending.value--
+    }
+  })
+  queue = run
+  return run.then(ok => {
+    if (ok && pending.value === 0) emit('saved')
+    return ok
+  })
 }
 
 function toggle(next: boolean) {
@@ -99,8 +127,10 @@ async function flushNote() {
     noteTimer = null
   }
   if (!noteUnsaved.value) return
-  const saved = await save({ note: note.value }, () => {})
-  if (saved) noteUnsaved.value = false
+  const sent = note.value
+  const saved = await save({ note: sent }, () => {})
+  // Typing that happened while this save was out is still unsaved.
+  if (saved && note.value === sent) noteUnsaved.value = false
 }
 
 // Leaving mid-sentence must not lose the sentence (Review Focus 1).
