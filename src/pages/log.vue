@@ -10,6 +10,7 @@ interface Draft {
   completed: boolean
   value: number | null
   note: string
+  steps: number[]
 }
 
 const route = useRoute()
@@ -36,6 +37,7 @@ function toDrafts(list: LogHabit[]): Record<number, Draft> {
         completed: habit.entry?.completed ?? false,
         value: habit.entry?.value ?? null,
         note: habit.entry?.note ?? '',
+        steps: habit.entry?.steps ?? [],
       },
     ]),
   )
@@ -87,6 +89,7 @@ async function save() {
         habitId: habit.id,
         completed: draft.completed,
         value: habit.kind === 'quantity' ? draft.value : null,
+        ...(habit.kind === 'checklist' && habit.steps.length > 0 ? { steps: draft.steps } : {}),
         ...(habit.notesEnabled ? { note: draft.note } : {}),
       }
     })
@@ -150,9 +153,11 @@ watch(
           :completed="drafts[habit.id]!.completed"
           :value="drafts[habit.id]!.value"
           :note="drafts[habit.id]!.note"
+          :steps="drafts[habit.id]!.steps"
           @update:completed="drafts[habit.id]!.completed = $event"
           @update:value="drafts[habit.id]!.value = $event"
           @update:note="drafts[habit.id]!.note = $event"
+          @update:steps="drafts[habit.id]!.steps = $event"
         />
       </div>
 

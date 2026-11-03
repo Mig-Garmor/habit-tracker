@@ -9,6 +9,14 @@
     @apply cursor-pointer text-sm font-medium;
   }
 
+  &__steps {
+    @apply flex flex-col gap-1.5;
+  }
+
+  &__step {
+    @apply flex items-center gap-2;
+  }
+
   &__quantity {
     @apply flex items-center gap-2;
   }
