@@ -28,6 +28,10 @@ habitsRoutes.post('/', zValidator('json', createHabitSchema), async c => {
     .insert(habits)
     .values({
       ...input,
+      // A journal IS its note (D-32); one without notes could never be done.
+      notesEnabled: input.kind === 'journal' ? true : input.notesEnabled,
+      // An empty question is no question.
+      question: input.question || null,
       // Only an active habit has started its grace period (D-3).
       activatedAt: input.status === 'active' ? today() : null,
     })

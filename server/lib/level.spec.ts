@@ -73,3 +73,14 @@ describe('activityLevel', () => {
     })
   })
 })
+
+describe('activityLevel for a checklist (D-30)', () => {
+  it('shades by steps ticked against the step count, as an amount does', () => {
+    expect(activityLevel({ kind: 'checklist', target: 5 }, { completed: true, value: 2 })).toBe(1)
+    expect(activityLevel({ kind: 'checklist', target: 5 }, { completed: true, value: 5 })).toBe(3)
+  })
+
+  it('shades a checklist with no steps like a tick', () => {
+    expect(activityLevel({ kind: 'checklist', target: null }, { completed: true, value: null })).toBe(3)
+  })
+})

@@ -1,9 +1,10 @@
 import { zValidator } from '@hono/zod-validator'
-import { and, eq, inArray, ne } from 'drizzle-orm'
+import { and, asc, eq, inArray, ne } from 'drizzle-orm'
 import { Hono } from 'hono'
 import { db } from '../db/client.js'
-import { habitEntries, habits, type Habit } from '../db/schema.js'
+import { habitEntries, habits, habitSteps, type Habit, type HabitStep } from '../db/schema.js'
 import { isValidDateKey, today } from '../lib/date.js'
+import { deriveEntry, EntryRuleError } from '../lib/entry-rules.js'
 import { logPayloadSchema } from '../validation.js'
 
 export const logRoutes = new Hono()
@@ -39,10 +40,22 @@ async function habitsForDate(date: string): Promise<Habit[]> {
   return [...byId.values()].sort((a, b) => a.position - b.position || a.id - b.id)
 }
 
+/** Every listed habit's steps, in order, keyed by habit. */
+export async function stepsByHabit(habitIds: number[]): Promise<Map<number, HabitStep[]>> {
+  const rows = habitIds.length
+    ? await db.select().from(habitSteps).where(inArray(habitSteps.habitId, habitIds))
+      .orderBy(asc(habitSteps.position), asc(habitSteps.id))
+    : []
+  const byHabit = new Map<number, HabitStep[]>()
+  for (const row of rows) byHabit.set(row.habitId, [...(byHabit.get(row.habitId) ?? []), row])
+  return byHabit
+}
+
 async function dayPayload(date: string) {
   const forDate = await habitsForDate(date)
   const entries = await db.select().from(habitEntries).where(eq(habitEntries.date, date))
   const byHabit = new Map(entries.map(entry => [entry.habitId, entry]))
+  const steps = await stepsByHabit(forDate.map(habit => habit.id))
 
   return {
     date,
@@ -56,8 +69,16 @@ async function dayPayload(date: string) {
         unit: habit.unit,
         target: habit.target,
         notesEnabled: habit.notesEnabled,
+        slot: habit.slot,
+        steps: (steps.get(habit.id) ?? []).map(step => ({ id: step.id, label: step.label })),
         entry: entry
-          ? { completed: entry.completed, value: entry.value, note: entry.note }
+          ? {
+              completed: entry.completed,
+              value: entry.value,
+              note: entry.note,
+              // Only a checklist has ticks to report; the others keep their old shape.
+              ...(habit.kind === 'checklist' ? { steps: entry.steps } : {}),
+            }
           : null,
       }
     }),
@@ -100,29 +121,34 @@ logRoutes.put('/:date', zValidator('json', logPayloadSchema), async c => {
           throw new LogEntryError(`Habit ${input.habitId} is archived`, 400)
         }
 
-        const isQuantity = habit.kind === 'quantity'
-        const value = isQuantity ? (input.value ?? 0) : null
-        // The server decides what counts as done — never the client (D-1).
-        const completed = isQuantity ? value! > 0 : Boolean(input.completed)
-
-        // An omitted note keeps whatever is stored, so turning notesEnabled off
-        // never destroys existing notes (D-6). Only an explicit note replaces one.
+        // An omitted note or set of ticks keeps whatever is stored (D-6), so
+        // the stored row is read first.
         const [existing] = await tx
           .select()
           .from(habitEntries)
           .where(and(eq(habitEntries.habitId, habit.id), eq(habitEntries.date, date)))
 
-        const note =
-          input.note === undefined
-            ? (existing?.note ?? null)
-            : (input.note?.trim() ? input.note.trim() : null)
+        const stepIds = habit.kind === 'checklist'
+          ? (await tx.select({ id: habitSteps.id }).from(habitSteps).where(eq(habitSteps.habitId, habit.id)))
+              .map(row => row.id)
+          : []
+
+        // The server decides what counts as done — never the client (D-1).
+        let derived
+        try {
+          derived = deriveEntry(habit, stepIds, input, existing ?? null)
+        } catch (err) {
+          if (err instanceof EntryRuleError) throw new LogEntryError(err.message, 400)
+          throw err
+        }
+        const { completed, value, note, steps } = derived
 
         await tx
           .insert(habitEntries)
-          .values({ habitId: habit.id, date, completed, value, note })
+          .values({ habitId: habit.id, date, completed, value, note, steps })
           .onConflictDoUpdate({
             target: [habitEntries.habitId, habitEntries.date],
-            set: { completed, value, note },
+            set: { completed, value, note, steps },
           })
       }
     })
