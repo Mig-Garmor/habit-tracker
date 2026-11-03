@@ -68,6 +68,17 @@ const orderedHabits = computed(() => {
 })
 
 /**
+ * Morning first, as the day runs (D-28). A slot with nothing in it gets no
+ * heading: an empty "Morning" over a list of evening habits reads as missing
+ * data, not as a choice.
+ */
+const groups = computed(() =>
+  ([['morning', 'Morning'], ['evening', 'Evening']] as const)
+    .map(([slot, title]) => ({ slot, title, habits: orderedHabits.value.filter(h => h.slot === slot) }))
+    .filter(group => group.habits.length > 0),
+)
+
+/**
  * The facts line, written short enough to survive a phone.
  *
  * The long form ('4× a week · 0 week streak · 15 minutes') does not fit beside
@@ -141,44 +152,47 @@ onMounted(load)
         the row shorter, because its height becomes the taller of the two
         rather than their sum.
       -->
-      <article
-        v-for="habit in orderedHabits"
-        :key="habit.id"
-        class="dashboard__habit"
-        :class="{ 'dashboard__habit--done': doneToday(habit) }"
-      >
-        <!--
-          Done is carried by dimness and by position in the list, and neither
-          reaches a screen reader. This is the only thing that says it out
-          loud, so it stays even though nothing renders it.
-        -->
-        <span v-if="doneToday(habit)" class="sr-only">Done today</span>
-
-        <div class="dashboard__habit-info">
-          <h2 class="dashboard__habit-name" :title="isTruncated(habit.name) ? habit.name : undefined">
-            {{ truncateName(habit.name) }}
-          </h2>
+      <section v-for="group in groups" :key="group.slot" class="dashboard__slot">
+        <h2 class="dashboard__slot-title">{{ group.title }}</h2>
+        <article
+          v-for="habit in group.habits"
+          :key="habit.id"
+          class="dashboard__habit"
+          :class="{ 'dashboard__habit--done': doneToday(habit) }"
+        >
           <!--
-            A display affordance, not a calculation (D-26 is about the latter —
-            no scoring path branches on daily). "Daily" is what a person calls
-            a cadence of 7; "7× a week" would be worse writing.
+            Done is carried by dimness and by position in the list, and neither
+            reaches a screen reader. This is the only thing that says it out
+            loud, so it stays even though nothing renders it.
           -->
-          <span class="dashboard__habit-facts">{{ facts(habit) }}</span>
-          <span v-if="targetText(habit)" class="dashboard__habit-facts">
-            target {{ targetText(habit) }}
-          </span>
-          <HealthPill :health="habit.health" :rate="habit.rate" class="dashboard__habit-pill" />
-        </div>
-        <ActivityGrid
-          class="dashboard__habit-grid"
-          :days="habit.days"
-          :unit="habit.unit"
-          :weeks="habit.weeks"
-          :today="data.today"
-        />
-      </article>
+          <span v-if="doneToday(habit)" class="sr-only">Done today</span>
+
+          <div class="dashboard__habit-info">
+            <h3 class="dashboard__habit-name" :title="isTruncated(habit.name) ? habit.name : undefined">
+              {{ truncateName(habit.name) }}
+            </h3>
+            <!--
+              A display affordance, not a calculation (D-26 is about the latter —
+              no scoring path branches on daily). "Daily" is what a person calls
+              a cadence of 7; "7× a week" would be worse writing.
+            -->
+            <span class="dashboard__habit-facts">{{ facts(habit) }}</span>
+            <span v-if="targetText(habit)" class="dashboard__habit-facts">
+              target {{ targetText(habit) }}
+            </span>
+            <HealthPill :health="habit.health" :rate="habit.rate" class="dashboard__habit-pill" />
+          </div>
+          <ActivityGrid
+            class="dashboard__habit-grid"
+            :days="habit.days"
+            :unit="habit.unit"
+            :weeks="habit.weeks"
+            :today="data.today"
+          />
+        </article>
+      </section>
     </template>
   </div>
 </template>
 
-<style lang="scss" scoped src="./index.scss"></style>
+<style lang="scss" scoped src="./progress.scss"></style>

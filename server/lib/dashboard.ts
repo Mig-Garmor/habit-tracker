@@ -1,4 +1,4 @@
-import type { HabitKind } from '../db/schema.js'
+import type { HabitKind, HabitSlot } from '../db/schema.js'
 import {
   classifyHealth, completionRate, currentStreak, summariseWeeks, type Health, type WeekSummary,
 } from './consistency.js'
@@ -15,6 +15,7 @@ export interface DashboardHabitInput {
   activatedAt: string | null
   /** How many times a week the habit is meant to happen. 7 is daily (D-26). */
   timesPerWeek: number
+  slot: HabitSlot
 }
 
 export interface DashboardEntryInput {

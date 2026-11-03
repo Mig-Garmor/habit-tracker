@@ -6,6 +6,14 @@
      with a void between them — the same whitespace problem, turned sideways. */
   @apply mx-auto flex w-full max-w-xl flex-col gap-2;
 
+  &__slot {
+    @apply flex flex-col gap-2;
+  }
+
+  &__slot-title {
+    @apply mt-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground;
+  }
+
   &__habit {
     /* Row, not column: the height becomes the taller of the text and the grid
        rather than their sum, which is what makes six fit while letting the

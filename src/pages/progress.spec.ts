@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from 'vitest'
 import type { DashboardHabit, DashboardResponse, DashboardWarning } from '@/lib/api'
 
 /**
- * D-25 made `currentStreak` count consecutive WEEKS, not days. index.vue's
+ * D-25 made `currentStreak` count consecutive WEEKS, not days. progress.vue's (then index.vue)
  * `streakLabel` and its warning banner were leftover from the day model
  * (final-fixes-brief items 1 and 2) — this pins the corrected wording so a
  * regression back to "day" reads as a failing test, not just a stale UI.
@@ -58,8 +58,8 @@ const RouterLinkStub = {
 }
 
 async function mountPage() {
-  const IndexPage = (await import('./index.vue')).default
-  const wrapper = mount(IndexPage, {
+  const ProgressPage = (await import('./progress.vue')).default
+  const wrapper = mount(ProgressPage, {
     attachTo: document.body,
     global: { stubs: { RouterLink: RouterLinkStub } },
   })
@@ -324,5 +324,32 @@ describe('habits done today', () => {
     const dimmed = wrapper.findAll('.dashboard__habit')
       .filter(a => a.classes().includes('dashboard__habit--done'))
     expect(dimmed).toHaveLength(2)
+  })
+})
+
+describe('grouping by slot (D-28)', () => {
+  it('shows morning habits under Morning and evening ones under Evening, each in position order', async () => {
+    dashboard = {
+      today: '2026-09-13',
+      from: '2026-09-07',
+      habits: [
+        habit({ id: 1, name: 'Exercise', slot: 'evening' }),
+        habit({ id: 2, name: 'Plan', slot: 'morning' }),
+        habit({ id: 3, name: 'Meditation', slot: 'evening' }),
+        habit({ id: 4, name: 'Recap', slot: 'morning' }),
+      ],
+      warnings: [],
+    }
+    const wrapper = await mountPage()
+
+    const sections = wrapper.findAll('.dashboard__slot')
+    expect(sections.map(section => section.find('.dashboard__slot-title').text())).toEqual(['Morning', 'Evening'])
+    expect(sections[0]!.findAll('.dashboard__habit-name').map(n => n.text())).toEqual(['Plan', 'Recap'])
+    expect(sections[1]!.findAll('.dashboard__habit-name').map(n => n.text())).toEqual(['Exercise', 'Meditation'])
+  })
+
+  it('leaves out the heading of a slot with nothing in it', async () => {
+    const wrapper = await mountWith({ slot: 'evening' })
+    expect(wrapper.findAll('.dashboard__slot-title').map(t => t.text())).toEqual(['Evening'])
   })
 })

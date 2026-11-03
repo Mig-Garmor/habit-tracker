@@ -22,6 +22,7 @@ async function handleSignOut() {
           first paint rather than flashing them at a signed-out visitor.
         -->
         <template v-if="status === 'in'">
+          <RouterLink to="/progress" class="app__link">Progress</RouterLink>
           <RouterLink to="/log" class="app__link">Log</RouterLink>
           <RouterLink to="/habits" class="app__link">Habits</RouterLink>
           <button type="button" class="app__signout" @click="handleSignOut">Sign out</button>
