@@ -13,6 +13,8 @@ export interface EntryInput {
 }
 
 export interface StoredEntry {
+  completed: boolean
+  value: number | null
   note: string | null
   steps: number[] | null
 }
@@ -45,7 +47,9 @@ export function deriveEntry(
   const note = mergeNote(input, existing)
 
   if (habit.kind === 'quantity') {
-    const value = input.value ?? 0
+    // Omitted keeps what is stored, as a note does (D-6): saving only a note
+    // must never zero the day's amount.
+    const value = input.value === undefined ? (existing?.value ?? 0) : (input.value ?? 0)
     return { completed: value > 0, value, note, steps: null }
   }
 
@@ -66,5 +70,8 @@ export function deriveEntry(
     return { completed: ticked.length > 0, value: ticked.length, note, steps: ticked }
   }
 
-  return { completed: Boolean(input.completed), value: null, note, steps: null }
+  // A tick, or a checklist with no steps — whose stale page may still send
+  // ticks, which mean nothing now and are ignored.
+  const completed = input.completed === undefined ? (existing?.completed ?? false) : Boolean(input.completed)
+  return { completed, value: null, note, steps: null }
 }

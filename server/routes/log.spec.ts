@@ -363,3 +363,13 @@ describe('checklist and journal habits', () => {
     expect(find(body, journalId).notesEnabled).toBe(true)
   })
 })
+
+describe('saving only a note (review C1)', () => {
+  it('leaves a ticked habit ticked and an amount where it was', async () => {
+    await put('2026-04-01', [{ habitId: exerciseId, completed: true }, { habitId: meditationId, value: 8 }])
+    const body = await readJson<LogDayResponse>(put('2026-04-01', [{ habitId: exerciseId, note: '45 min run' }]))
+
+    expect(body.habits.find(h => h.id === exerciseId)!.entry).toMatchObject({ completed: true, note: '45 min run' })
+    expect(body.habits.find(h => h.id === meditationId)!.entry).toMatchObject({ completed: true, value: 8 })
+  })
+})

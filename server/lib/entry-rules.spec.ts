@@ -26,7 +26,7 @@ describe('deriveEntry', () => {
   })
 
   it('keeps the stored ticks when steps are omitted, as an omitted note is kept (D-6)', () => {
-    expect(deriveEntry(checklist, STEPS, { note: 'Ship #1576' }, { note: null, steps: [12] }))
+    expect(deriveEntry(checklist, STEPS, { note: 'Ship #1576' }, { completed: true, value: 1, note: null, steps: [12] }))
       .toEqual({ completed: true, value: 1, note: 'Ship #1576', steps: [12] })
   })
 
@@ -49,12 +49,37 @@ describe('deriveEntry', () => {
     const journal = { id: 4, kind: 'journal' as const }
     expect(deriveEntry(journal, [], { note: '  Reviewed #1576  ', completed: false }, null))
       .toEqual({ completed: true, value: null, note: 'Reviewed #1576', steps: null })
-    expect(deriveEntry(journal, [], { note: '', completed: true }, { note: 'old', steps: null }))
+    expect(deriveEntry(journal, [], { note: '', completed: true }, { completed: true, value: null, note: 'old', steps: null }))
       .toMatchObject({ completed: false, note: null })
   })
 
   it('keeps a stored journal note when the note is omitted', () => {
-    expect(deriveEntry({ id: 4, kind: 'journal' }, [], {}, { note: 'kept', steps: null }))
+    expect(deriveEntry({ id: 4, kind: 'journal' }, [], {}, { completed: true, value: null, note: 'kept', steps: null }))
       .toMatchObject({ completed: true, note: 'kept' })
+  })
+})
+
+describe('a note sent on its own (review C1)', () => {
+  const stored = (over: Partial<{ completed: boolean, value: number | null, note: string | null, steps: number[] | null }>) =>
+    ({ completed: false, value: null, note: null, steps: null, ...over })
+
+  it('keeps a ticked habit ticked', () => {
+    expect(deriveEntry({ id: 1, kind: 'binary' }, [], { note: '45 min run' }, stored({ completed: true })))
+      .toEqual({ completed: true, value: null, note: '45 min run', steps: null })
+  })
+
+  it('keeps an amount', () => {
+    expect(deriveEntry({ id: 2, kind: 'quantity' }, [], { note: 'chapter 4' }, stored({ completed: true, value: 30 })))
+      .toMatchObject({ completed: true, value: 30, note: 'chapter 4' })
+  })
+
+  it('keeps a checklist with no steps ticked', () => {
+    expect(deriveEntry({ id: 3, kind: 'checklist' }, [], { note: 'all fine' }, stored({ completed: true })))
+      .toMatchObject({ completed: true, note: 'all fine' })
+  })
+
+  it('ignores ticks a stale page sends for a checklist that no longer has steps (review I4)', () => {
+    expect(deriveEntry({ id: 3, kind: 'checklist' }, [], { steps: [11] }, stored({ completed: true })))
+      .toMatchObject({ completed: true })
   })
 })
