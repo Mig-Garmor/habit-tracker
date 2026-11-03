@@ -22,6 +22,7 @@ Environment Variables for **Production**:
 | `VITE_GOOGLE_CLIENT_ID` | the same value again |
 | `ALLOWED_EMAILS` | your email address |
 | `SESSION_SECRET` | a **new** value — see below, not the local one |
+| `MCP_TOKEN` | optional — `openssl rand -base64 32`; turns on `/api/mcp` for Claude Code (see README) |
 | `HABIT_TIMEZONE` | your IANA time zone, e.g. `Europe/Malta` — Vercel runs in UTC, and without this the first hour after local midnight is "yesterday" to the server (D-40) |
 
 ```bash

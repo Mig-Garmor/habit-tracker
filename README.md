@@ -113,6 +113,31 @@ Pressing a bar brings that slot forward until the clock next switches. The hour 
 on; scoring still reads only its times per week. A weekly habit missed on its day stays listed,
 marked "from Monday", until done. Design: `docs/superpowers/specs/2026-11-03-today-view-design.md`.
 
+## Claude (MCP) and /start-ht
+
+`POST /api/mcp` is a small MCP server for **Claude Code** — stateless, JSON only, behind a
+bearer token (`MCP_TOKEN`, ≥ 32 characters; unset means closed). A signed-in browser cannot
+use it, and any request from a web page is refused. Tools: `get_today`, `list_questions`,
+`get_daily_report`, `get_week_objectives`, `get_team_initiatives`, `get_team`,
+`get_habit_notes`, `log_habit`. Design: `docs/superpowers/specs/2026-11-03-mcp-server-design.md`.
+
+Once, after deploying with `MCP_TOKEN` set:
+
+```bash
+claude mcp add --transport http habit-tracker https://<your-app>/api/mcp --header "Authorization: Bearer <MCP_TOKEN>"
+```
+
+```bash
+ln -s ~/personal/habit-tracker/claude/skills/start-ht ~/.claude/skills/start-ht
+```
+
+Then `/start-ht` in Claude Code runs the daily review: today's report, PRs open more than a
+week in catena-unicorn, people with more than two COS tickets in progress, the week's
+objectives, and the questions to ask. The procedure is `claude/skills/start-ht/SKILL.md` —
+edit it to change the rules; no deploy needed. Team members are the steps of "Check what each
+team member is working on"; write a GitHub login in brackets (`Daren (dcastro)`) to match PRs
+exactly.
+
 ## Styling convention
 
 **Tailwind lives in SCSS, not in templates.** Every component has a sibling `.scss` file, so

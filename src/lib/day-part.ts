@@ -5,7 +5,7 @@ import type { HabitSlot } from './api'
  * (D-29). The server never guesses the time of day: it runs in UTC.
  */
 
-/** The hour the evening takes over on a weekday. */
+/** The hour the evening takes over on a weekday. server/lib/schedule.ts keeps a copy for MCP. */
 export const EVENING_STARTS_AT = 17
 
 function isWeekend(now: Date): boolean {
